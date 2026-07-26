@@ -82,7 +82,8 @@ type SaveState = {
   totalProfit: number;
   deals: number;
   policeWins: number;
-  storyCompleted: boolean;
+  repairs: number;
+  storyChapter: number;
 };
 
 const CUSTOMERS: Customer[] = [
@@ -123,6 +124,13 @@ const SCENARIOS: Scenario[] = [
   { customer: "roman", item: "guitar", ask: 720, min: 560, condition: 71, authentic: false, stolen: false, story: "Настоящий винтаж. Название мастерской стёрлось от времени." },
 ];
 
+const CUSTOMER_LORE = [
+  { customer: "viktor", unlock: 0, title: "Друг старого хозяина", text: "Виктор Львович заходил сюда ещё в девяностых. Он знает, какие вещи дядя Борис никогда не выставлял на продажу." },
+  { customer: "dima", unlock: 4, title: "Музыкант без студии", text: "Дима учится на звукорежиссёра и продаёт технику, чтобы собрать деньги на собственную маленькую студию." },
+  { customer: "sofia", unlock: 8, title: "Новая жизнь", text: "София распродаёт вещи из прошлой жизни и мечтает открыть мастерскую по восстановлению винтажной одежды." },
+  { customer: "max", unlock: 12, title: "Семейные долги", text: "Макс торопится не из жадности: после отъезда брата он один выплачивает долги семьи и часто принимает плохие решения." },
+];
+
 const INITIAL_STATE: SaveState = {
   cash: 2500,
   reputation: 50,
@@ -133,12 +141,12 @@ const INITIAL_STATE: SaveState = {
   totalProfit: 0,
   deals: 0,
   policeWins: 0,
-  storyCompleted: false,
+  repairs: 0,
+  storyChapter: 0,
 };
 
 const SAVE_KEY = "pawn-shop-save-v2";
 const CASES_PER_DAY = 6;
-const STORY_PROFIT_GOAL = 900;
 const money = (value: number) => `$${Math.max(0, Math.round(value)).toLocaleString("en-US")}`;
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
@@ -164,8 +172,42 @@ export default function PawnShopGame() {
   const ceilingOffer = Math.round(scenario.ask * 1.08 / 10) * 10;
   const dayProgress = state.servedToday / CASES_PER_DAY;
   const storyProfit = Math.max(0, state.totalProfit);
-  const storyProgress = clamp(storyProfit / STORY_PROFIT_GOAL * 100, 0, 100);
-  const storyReady = storyProfit >= STORY_PROFIT_GOAL && state.reputation >= 55;
+  const storyChapters = [
+    {
+      title: "Первая неделя",
+      subtitle: "Спасти ломбард",
+      description: "Дядя Борис уехал и оставил вам Golden Corner с долгами. Покажите, что магазин ещё может приносить прибыль.",
+      requirement: `${money(storyProfit)}/${money(900)} прибыли · репутация ${state.reputation}/55`,
+      progress: Math.min(storyProfit / 900, state.reputation / 55) * 100,
+      ready: storyProfit >= 900 && state.reputation >= 55,
+      reward: 250,
+      note: "Не гонись за каждой сделкой. Иногда лучший заработок — вовремя сказать человеку «нет».",
+    },
+    {
+      title: "Второй шанс",
+      subtitle: "Вернуть мастерскую",
+      description: "Когда-то в подвале работал лучший часовщик района. Восстановите мастерскую и верните людям привычку чинить вещи, а не выбрасывать.",
+      requirement: `${state.deals}/12 сделок · ${state.repairs}/2 ремонта`,
+      progress: Math.min(state.deals / 12, state.repairs / 2) * 100,
+      ready: state.deals >= 12 && state.repairs >= 2,
+      reward: 400,
+      note: "Golden Corner появился не ради золота. Твой дед говорил: у каждой вещи должен быть второй шанс.",
+    },
+    {
+      title: "Свой угол",
+      subtitle: "Стать частью района",
+      description: "Сеть «Титан» хочет выкупить помещение. Докажите соседям, что семейный ломбард нужнее очередного безликого филиала.",
+      requirement: `${money(storyProfit)}/${money(2500)} прибыли · репутация ${state.reputation}/65`,
+      progress: Math.min(storyProfit / 2500, state.reputation / 65) * 100,
+      ready: storyProfit >= 2500 && state.reputation >= 65,
+      reward: 750,
+      note: "Если люди возвращаются не только за деньгами, значит это уже не просто магазин. Значит, ты всё сделал правильно.",
+    },
+  ];
+  const activeStoryIndex = Math.min(state.storyChapter, storyChapters.length - 1);
+  const activeStory = storyChapters[activeStoryIndex];
+  const allStoryComplete = state.storyChapter >= storyChapters.length;
+  const storyProgress = allStoryComplete ? 100 : clamp(activeStory.progress, 0, 100);
 
   const ownedWithData = useMemo(
     () =>
@@ -180,8 +222,14 @@ export default function PawnShopGame() {
     try {
       const saved = window.localStorage.getItem(SAVE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved) as Partial<SaveState>;
-        setState({ ...INITIAL_STATE, ...parsed, inventory: Array.isArray(parsed.inventory) ? parsed.inventory : [] });
+        const parsed = JSON.parse(saved) as Partial<SaveState> & { storyCompleted?: boolean };
+        setState({
+          ...INITIAL_STATE,
+          ...parsed,
+          inventory: Array.isArray(parsed.inventory) ? parsed.inventory : [],
+          repairs: Number.isFinite(parsed.repairs) ? Number(parsed.repairs) : 0,
+          storyChapter: Number.isFinite(parsed.storyChapter) ? clamp(Number(parsed.storyChapter), 0, 3) : parsed.storyCompleted ? 1 : 0,
+        });
       }
     } catch {
       // A broken save never blocks a shift.
@@ -375,6 +423,7 @@ export default function PawnShopGame() {
     setState((current) => ({
       ...current,
       cash: current.cash - cost,
+      repairs: current.repairs + 1,
       inventory: current.inventory.map((entry) =>
         entry.uid === owned.uid ? { ...entry, repaired: true, condition: 100 } : entry,
       ),
@@ -401,15 +450,15 @@ export default function PawnShopGame() {
     setView("shop");
   };
 
-  const completeStory = () => {
-    if (!storyReady || state.storyCompleted) return;
+  const completeStoryChapter = () => {
+    if (!activeStory.ready || allStoryComplete) return;
     setState((current) => ({
       ...current,
-      storyCompleted: true,
-      cash: current.cash + 250,
-      reputation: clamp(current.reputation + 5, 0, 100),
+      storyChapter: Math.min(current.storyChapter + 1, storyChapters.length),
+      cash: current.cash + activeStory.reward,
+      reputation: clamp(current.reputation + 3, 0, 100),
     }));
-    notify("Ломбард спасён! Дядя Борис оставил вам премию $250", "good");
+    notify(`Глава завершена. Награда ${money(activeStory.reward)}`, "good");
   };
 
   const authResult = scenario.authentic ? "Подлинная вещь" : "Обнаружена подделка";
@@ -438,7 +487,7 @@ export default function PawnShopGame() {
           <nav className="scene-nav" aria-label="Разделы ломбарда">
             <button className={view === "stock" ? "active" : ""} onClick={() => setView("stock")}><PackageOpen size={19} /><small>Витрина</small><i>{state.inventory.length}</i></button>
             <button className={view === "workshop" ? "active" : ""} onClick={() => setView("workshop")}><Wrench size={19} /><small>Ремонт</small></button>
-            <button className={view === "story" ? "active" : ""} onClick={() => setView("story")}><CircleDollarSign size={19} /><small>История</small>{!state.storyCompleted && <i>{Math.round(storyProgress)}%</i>}</button>
+            <button className={view === "story" ? "active" : ""} onClick={() => setView("story")}><CircleDollarSign size={19} /><small>История</small>{!allStoryComplete && <i>{state.storyChapter + 1}/3</i>}</button>
             <button className={view === "ledger" ? "active" : ""} onClick={() => setView("ledger")}><BookOpenText size={19} /><small>Отчёт</small></button>
           </nav>
         </header>
@@ -597,48 +646,66 @@ export default function PawnShopGame() {
               </Drawer>
             )}
             {view === "story" && (
-              <Drawer title="История Golden Corner" subtitle="Простая цель, которая выполняется вместе с обычной игрой." icon={CircleDollarSign}>
+              <Drawer title="История Golden Corner" subtitle="Три главы о семейном ломбарде и людях, которые сюда возвращаются." icon={CircleDollarSign}>
                 <div className="case-summary">
                   <span><Store size={21} /></span>
                   <div>
-                    <small>ГЛАВА 1 · ПЕРВАЯ НЕДЕЛЯ</small>
-                    <strong>{state.storyCompleted ? "Ломбард спасён" : `${money(storyProfit)} из ${money(STORY_PROFIT_GOAL)} прибыли`}</strong>
-                    <p>Дядя Борис уехал и оставил вам старый ломбард с долгами. Докажите, что Golden Corner может приносить прибыль, и сохраните репутацию не ниже 55.</p>
-                    <div className="story-progress"><i style={{ width: `${state.storyCompleted ? 100 : storyProgress}%` }} /></div>
+                    <small>{allStoryComplete ? "ИСТОРИЯ ЗАВЕРШЕНА" : `ГЛАВА ${state.storyChapter + 1} ИЗ 3 · ${activeStory.subtitle}`}</small>
+                    <strong>{allStoryComplete ? "Golden Corner снова жив" : activeStory.title}</strong>
+                    <p>{allStoryComplete ? "Семейный ломбард пережил долги, вернул мастерскую и стал настоящей частью района." : activeStory.description}</p>
+                    <div className="story-progress"><i style={{ width: `${storyProgress}%` }} /></div>
+                    {!allStoryComplete && <em>{activeStory.requirement}</em>}
                   </div>
                 </div>
 
-                <div className="story-timeline">
-                  <article className="story-entry">
-                    <span>01</span>
-                    <div><small>НАЧАЛО</small><strong>Ключи на стойке</strong><p>Дядя Борис оставил записку: «Продержись первую неделю — ломбард твой».</p></div>
-                  </article>
-                  <article className={`story-entry ${state.reputation < 55 ? "locked" : ""}`}>
-                    <span>02</span>
-                    <div><small>РЕПУТАЦИЯ</small><strong>{state.reputation >= 55 ? "Клиенты начали доверять вам" : `Нужно 55 · сейчас ${state.reputation}`}</strong><p>Не покупайте подделки и не вызывайте полицию без причины.</p></div>
-                  </article>
-                  <article className={`story-entry ${storyProfit < STORY_PROFIT_GOAL ? "locked" : ""}`}>
-                    <span>03</span>
-                    <div><small>ПРИБЫЛЬ</small><strong>{storyProfit >= STORY_PROFIT_GOAL ? "Долги закрыты" : `Заработайте ещё ${money(STORY_PROFIT_GOAL - storyProfit)}`}</strong><p>Покупайте дешевле, ремонтируйте хорошие вещи и продавайте их с наценкой.</p></div>
-                  </article>
+                <div className="chapter-list">
+                  {storyChapters.map((chapter, index) => (
+                    <article key={chapter.title} className={`${index < state.storyChapter ? "complete" : ""} ${index === state.storyChapter ? "active" : ""} ${index > state.storyChapter ? "locked" : ""}`}>
+                      <span>{index < state.storyChapter ? <Check size={15} /> : `0${index + 1}`}</span>
+                      <div><small>{chapter.subtitle}</small><strong>{chapter.title}</strong><p>{index <= state.storyChapter ? chapter.description : "Откроется после предыдущей главы."}</p></div>
+                    </article>
+                  ))}
                 </div>
 
-                {storyReady && !state.storyCompleted && (
-                  <button className="story-complete" onClick={completeStory}>
-                    <Check size={19} /><span><strong>Оставить ломбард себе</strong><small>Завершить главу и получить $250</small></span>
+                {!allStoryComplete && (
+                  <blockquote className="boris-note">
+                    <BellRing size={19} />
+                    <div><small>ЗАПИСКА ДЯДИ БОРИСА</small><p>«{activeStory.note}»</p></div>
+                  </blockquote>
+                )}
+
+                {activeStory.ready && !allStoryComplete && (
+                  <button className="story-complete" onClick={completeStoryChapter}>
+                    <Check size={19} /><span><strong>Завершить главу</strong><small>Получить {money(activeStory.reward)} и открыть продолжение</small></span>
                   </button>
                 )}
 
-                {!storyReady && !state.storyCompleted && (
+                {!activeStory.ready && !allStoryComplete && (
                   <div className="story-tip"><BellRing size={18} /><p>Просто продолжайте обслуживать клиентов. Сюжетный прогресс идёт автоматически.</p></div>
                 )}
 
-                {state.storyCompleted && (
+                {allStoryComplete && (
                   <div className="story-ending">
-                    <strong>Golden Corner остаётся вашим</strong>
-                    <p>Дядя Борис подписал бумаги и оставил вам премию. Теперь можно спокойно развивать витрину и ставить новые рекорды прибыли.</p>
+                    <strong>Новая вывеска, старые двери</strong>
+                    <p>Вы отказали сети «Титан». Дима принёс первую запись из своей студии, София восстановила шторы, а Виктор Львович вернул на стену фотографию основателя. Магазин остался семейным.</p>
                   </div>
                 )}
+
+                <section className="lore-section">
+                  <header><UserRound size={18} /><div><strong>Постоянные клиенты</strong><small>Их истории открываются после успешных сделок</small></div></header>
+                  <div className="lore-grid">
+                    {CUSTOMER_LORE.map((entry) => {
+                      const loreCustomer = CUSTOMERS.find((person) => person.id === entry.customer) ?? CUSTOMERS[0];
+                      const unlocked = state.deals >= entry.unlock;
+                      return (
+                        <article key={entry.customer} className={unlocked ? "" : "locked"}>
+                          <div className="lore-portrait" style={{ backgroundImage: unlocked ? `url("${loreCustomer.character}")` : undefined }} />
+                          <div><small>{unlocked ? loreCustomer.name : `Откроется после ${entry.unlock} сделок`}</small><strong>{unlocked ? entry.title : "Неизвестный посетитель"}</strong><p>{unlocked ? entry.text : "Продолжайте работать, чтобы узнать его историю."}</p></div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
               </Drawer>
             )}
             {view === "ledger" && (
