@@ -1,978 +1,670 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  BadgeDollarSign,
+  Banknote,
+  BookOpenText,
+  Check,
+  ChevronRight,
+  CircleDollarSign,
+  Clock3,
+  Coins,
+  Fingerprint,
+  Hammer,
+  HandCoins,
+  History,
+  PackageOpen,
+  ScanLine,
+  Search,
+  ShieldAlert,
+  ShieldCheck,
+  ShoppingBag,
+  Sparkles,
+  Star,
+  Store,
+  Tag,
+  TrendingUp,
+  UserRound,
+  UsersRound,
+  Wrench,
+  X,
+  Zap,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-type Rarity = "Обычный" | "Редкий" | "Эпический" | "Легендарный" | "Секретный";
-type Family = "speed" | "support" | "power";
+type View = "counter" | "stock" | "workshop" | "ledger";
+type CheckType = "auth" | "serial" | "value";
+type ToastTone = "good" | "bad" | "neutral";
 
-type Creature = {
+type Customer = {
   id: string;
   name: string;
-  family: Family;
-  tier: number;
-  rarity: Rarity;
-  emoji: string;
-  object: string;
-  attack: number;
-  income: number;
-  color: string;
-  phrase: string;
-  ability: string;
+  role: string;
+  image: string;
+  patience: number;
 };
 
-type OwnedCreature = {
+type Item = {
+  id: string;
+  name: string;
+  category: string;
+  image: string;
+  market: number;
+  repairCost: number;
+};
+
+type Scenario = {
+  customer: string;
+  item: string;
+  ask: number;
+  min: number;
+  condition: number;
+  authentic: boolean;
+  stolen: boolean;
+  story: string;
+};
+
+type OwnedItem = {
   uid: string;
-  creatureId: string;
+  itemId: string;
+  buyPrice: number;
+  condition: number;
+  authentic: boolean;
+  repaired: boolean;
 };
 
-type GameSave = {
-  coins: number;
-  essence: number;
-  wave: number;
-  inventory: OwnedCreature[];
-  team: string[];
-  unlocked: string[];
-  lastSeen: number;
-  dailyClaim: string;
+type SaveState = {
+  cash: number;
+  reputation: number;
+  day: number;
+  servedToday: number;
+  caseIndex: number;
+  inventory: OwnedItem[];
+  totalProfit: number;
+  deals: number;
+  policeWins: number;
 };
 
-type Battle = {
-  hp: number;
-  maxHp: number;
-  time: number;
-  boss: boolean;
-};
-
-type YandexPlayer = {
-  getData: (keys?: string[]) => Promise<Record<string, unknown>>;
-  setData: (data: Record<string, unknown>, flush?: boolean) => Promise<void>;
-};
-
-type YandexSDK = {
-  getPlayer?: () => Promise<YandexPlayer>;
-  features?: {
-    LoadingAPI?: { ready: () => void };
-    GameplayAPI?: { start: () => void; stop: () => void };
-  };
-  adv?: {
-    showRewardedVideo: (callbacks: {
-      onOpen?: () => void;
-      onRewarded?: () => void;
-      onClose?: (wasShown: boolean) => void;
-      onError?: (error: object) => void;
-    }) => void;
-  };
-};
-
-declare global {
-  interface Window {
-    YaGames?: { init: () => Promise<YandexSDK> };
-    ysdk?: YandexSDK;
-    yandexPlayer?: YandexPlayer;
-  }
-}
-
-const creatures: Creature[] = [
-  {
-    id: "gattino",
-    name: "Gattino Spaghettino",
-    family: "speed",
-    tier: 0,
-    rarity: "Обычный",
-    emoji: "🐱",
-    object: "🍝",
-    attack: 7,
-    income: 1,
-    color: "#ffb347",
-    phrase: "Miao-miao, pasta al volo!",
-    ability: "Быстрые лапки",
-  },
-  {
-    id: "lupo",
-    name: "Lupo Motorino",
-    family: "speed",
-    tier: 1,
-    rarity: "Редкий",
-    emoji: "🐺",
-    object: "🛵",
-    attack: 18,
-    income: 3,
-    color: "#77a7ff",
-    phrase: "Turbo turbo, peperino!",
-    ability: "Турбо-рывок",
-  },
-  {
-    id: "pavone",
-    name: "Pavone Cannone",
-    family: "speed",
-    tier: 2,
-    rarity: "Эпический",
-    emoji: "🦚",
-    object: "💥",
-    attack: 42,
-    income: 7,
-    color: "#b67cff",
-    phrase: "Piuma, boom, confusione!",
-    ability: "Взрывные перья",
-  },
-  {
-    id: "toro",
-    name: "Toro Meteoro",
-    family: "speed",
-    tier: 3,
-    rarity: "Легендарный",
-    emoji: "🐂",
-    object: "☄️",
-    attack: 95,
-    income: 17,
-    color: "#ff6b57",
-    phrase: "Toro Meteoro, cielo intero!",
-    ability: "Метеорный таран",
-  },
-  {
-    id: "dragone",
-    name: "Dragone Maccherone",
-    family: "speed",
-    tier: 4,
-    rarity: "Секретный",
-    emoji: "🐉",
-    object: "🍜",
-    attack: 210,
-    income: 42,
-    color: "#ffcf3f",
-    phrase: "Fuoco, pasta, esplosione!",
-    ability: "Макаронное пламя",
-  },
-  {
-    id: "pinguino",
-    name: "Pinguino Cuscino",
-    family: "support",
-    tier: 0,
-    rarity: "Обычный",
-    emoji: "🐧",
-    object: "🛏️",
-    attack: 5,
-    income: 2,
-    color: "#68d9ff",
-    phrase: "Morbido, freddo, dormiglione!",
-    ability: "Мягкая защита",
-  },
-  {
-    id: "orsetto",
-    name: "Orsetto Rubinetto",
-    family: "support",
-    tier: 1,
-    rarity: "Редкий",
-    emoji: "🐻",
-    object: "🚰",
-    attack: 13,
-    income: 5,
-    color: "#4ae3be",
-    phrase: "Acqua fresca, orso in festa!",
-    ability: "Лечебные капли",
-  },
-  {
-    id: "capibara",
-    name: "Capibara Lampadara",
-    family: "support",
-    tier: 2,
-    rarity: "Эпический",
-    emoji: "🦫",
-    object: "💡",
-    attack: 31,
-    income: 12,
-    color: "#e9ff61",
-    phrase: "Brilla, balla, Capibara!",
-    ability: "Сияющий бонус",
-  },
-  {
-    id: "gorilla",
-    name: "Gorilla Gondolilla",
-    family: "support",
-    tier: 3,
-    rarity: "Легендарный",
-    emoji: "🦍",
-    object: "🚣",
-    attack: 72,
-    income: 28,
-    color: "#f58cff",
-    phrase: "Voga forte, chiudi le porte!",
-    ability: "Гондольный щит",
-  },
-  {
-    id: "gufo",
-    name: "Gufo Temporale",
-    family: "support",
-    tier: 4,
-    rarity: "Секретный",
-    emoji: "🦉",
-    object: "⚡",
-    attack: 165,
-    income: 66,
-    color: "#6d8dff",
-    phrase: "Tuono totale, Gufo Temporale!",
-    ability: "Цепная молния",
-  },
-  {
-    id: "criceto",
-    name: "Criceto Calzinetto",
-    family: "power",
-    tier: 0,
-    rarity: "Обычный",
-    emoji: "🐹",
-    object: "🧦",
-    attack: 6,
-    income: 2,
-    color: "#ff8a73",
-    phrase: "Calza veloce, ruota feroce!",
-    ability: "Монетное колесо",
-  },
-  {
-    id: "talpa",
-    name: "Talpa Polpetta",
-    family: "power",
-    tier: 1,
-    rarity: "Редкий",
-    emoji: "🦔",
-    object: "🧆",
-    attack: 16,
-    income: 4,
-    color: "#e4a96f",
-    phrase: "Scava, trova, polpetta nuova!",
-    ability: "Подземный клад",
-  },
-  {
-    id: "giraffa",
-    name: "Giraffa Caraffa",
-    family: "power",
-    tier: 2,
-    rarity: "Эпический",
-    emoji: "🦒",
-    object: "🏺",
-    attack: 38,
-    income: 10,
-    color: "#ffd85a",
-    phrase: "Collo lungo, succo nel mondo!",
-    ability: "Высокий доход",
-  },
-  {
-    id: "leone",
-    name: "Leone Ciclone",
-    family: "power",
-    tier: 3,
-    rarity: "Легендарный",
-    emoji: "🦁",
-    object: "🌪️",
-    attack: 88,
-    income: 23,
-    color: "#ff8c32",
-    phrase: "Gira tutta la stazione!",
-    ability: "Циклонный рык",
-  },
-  {
-    id: "imperatore",
-    name: "Imperatore Mozzarellatore",
-    family: "power",
-    tier: 4,
-    rarity: "Секретный",
-    emoji: "👑",
-    object: "🧀",
-    attack: 195,
-    income: 58,
-    color: "#fff095",
-    phrase: "Mozzarella, regno, tarantella!",
-    ability: "Королевский указ",
-  },
+const CUSTOMERS: Customer[] = [
+  { id: "max", name: "Макс", role: "спешит и нервничает", image: "/customers/max.webp", patience: 62 },
+  { id: "sofia", name: "София", role: "знает цену красивым вещам", image: "/customers/sofia.webp", patience: 74 },
+  { id: "viktor", name: "Виктор Львович", role: "коллекционер старой школы", image: "/customers/viktor.webp", patience: 86 },
+  { id: "roman", name: "Роман", role: "не любит лишних вопросов", image: "/customers/roman.webp", patience: 48 },
+  { id: "dima", name: "Дима", role: "студент и техноэнтузиаст", image: "/customers/dima.webp", patience: 78 },
 ];
 
-const creatureById = new Map(creatures.map((creature) => [creature.id, creature]));
-const baseCreatureIds = ["gattino", "pinguino", "criceto"];
-const SAVE_KEY = "memobeasts-lab-v1";
-
-const starterInventory: OwnedCreature[] = [
-  { uid: "starter-1", creatureId: "gattino" },
-  { uid: "starter-2", creatureId: "gattino" },
-  { uid: "starter-3", creatureId: "pinguino" },
-  { uid: "starter-4", creatureId: "criceto" },
+const ITEMS: Item[] = [
+  { id: "watch", name: "Золотые часы", category: "Часы", image: "/items/watch.webp", market: 1240, repairCost: 115 },
+  { id: "camera", name: "Беззеркальная камера", category: "Техника", image: "/items/camera.webp", market: 860, repairCost: 95 },
+  { id: "guitar", name: "Винтажная гитара", category: "Музыка", image: "/items/guitar.webp", market: 980, repairCost: 130 },
+  { id: "handbag", name: "Кожаная сумка", category: "Аксессуары", image: "/items/handbag.webp", market: 720, repairCost: 80 },
+  { id: "laptop", name: "Игровой ноутбук", category: "Техника", image: "/items/laptop.webp", market: 1350, repairCost: 170 },
+  { id: "coin", name: "Серебряный доллар", category: "Коллекционное", image: "/items/coin.webp", market: 590, repairCost: 40 },
+  { id: "drill", name: "Аккумуляторная дрель", category: "Инструменты", image: "/items/drill.webp", market: 330, repairCost: 55 },
+  { id: "ring", name: "Кольцо с сапфиром", category: "Украшения", image: "/items/ring.webp", market: 1660, repairCost: 145 },
+  { id: "headphones", name: "Студийные наушники", category: "Техника", image: "/items/headphones.webp", market: 410, repairCost: 50 },
+  { id: "statuette", name: "Бронзовая статуэтка", category: "Антиквариат", image: "/items/statuette.webp", market: 810, repairCost: 75 },
+  { id: "phone", name: "Флагманский смартфон", category: "Техника", image: "/items/phone.webp", market: 920, repairCost: 120 },
+  { id: "vinyl", name: "Редкая пластинка", category: "Коллекционное", image: "/items/vinyl.webp", market: 470, repairCost: 35 },
 ];
 
-const initialSave: GameSave = {
-  coins: 240,
-  essence: 0,
-  wave: 1,
-  inventory: starterInventory,
-  team: ["starter-3", "starter-4"],
-  unlocked: ["gattino", "pinguino", "criceto"],
-  lastSeen: Date.now(),
-  dailyClaim: "",
+const SCENARIOS: Scenario[] = [
+  { customer: "max", item: "camera", ask: 610, min: 470, condition: 78, authentic: true, stolen: false, story: "Камера брата. Он уехал и разрешил продать. Деньги нужны сегодня." },
+  { customer: "sofia", item: "handbag", ask: 630, min: 450, condition: 91, authentic: false, stolen: false, story: "Подарок из бутика. Почти не носила — просто не мой цвет." },
+  { customer: "viktor", item: "watch", ask: 940, min: 760, condition: 67, authentic: true, stolen: false, story: "Часы из семейной коллекции. Механизм давно просит мастера." },
+  { customer: "roman", item: "phone", ask: 590, min: 460, condition: 84, authentic: true, stolen: true, story: "Телефон знакомого. Коробку и чек потом занесу, сейчас тороплюсь." },
+  { customer: "dima", item: "headphones", ask: 290, min: 210, condition: 73, authentic: true, stolen: false, story: "Перехожу на другую модель. Амбушюры уставшие, но звук чистый." },
+  { customer: "sofia", item: "ring", ask: 1350, min: 1050, condition: 96, authentic: true, stolen: false, story: "Помолвка отменилась. Не хочу больше видеть это кольцо." },
+  { customer: "max", item: "coin", ask: 440, min: 310, condition: 88, authentic: false, stolen: false, story: "Нашёл у дедушки в шкатулке. В интернете такие стоят состояние." },
+  { customer: "roman", item: "drill", ask: 230, min: 160, condition: 59, authentic: true, stolen: true, story: "Закрыл бригаду, распродаю инструмент. Документов на него не было." },
+  { customer: "viktor", item: "statuette", ask: 590, min: 430, condition: 82, authentic: true, stolen: false, story: "Покупал на блошином рынке двадцать лет назад. Хорошая бронза." },
+  { customer: "dima", item: "laptop", ask: 990, min: 810, condition: 64, authentic: true, stolen: false, story: "Нужны деньги на учёбу. Батарея слабая, остальное работает." },
+  { customer: "sofia", item: "vinyl", ask: 360, min: 240, condition: 93, authentic: true, stolen: false, story: "Досталась вместе с квартирой. Проигрывателя у меня всё равно нет." },
+  { customer: "roman", item: "guitar", ask: 720, min: 560, condition: 71, authentic: false, stolen: false, story: "Настоящий винтаж. Название мастерской стёрлось от времени." },
+];
+
+const INITIAL_STATE: SaveState = {
+  cash: 2500,
+  reputation: 50,
+  day: 1,
+  servedToday: 0,
+  caseIndex: 0,
+  inventory: [],
+  totalProfit: 0,
+  deals: 0,
+  policeWins: 0,
 };
 
-function uid() {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
+const SAVE_KEY = "pawn-shop-save-v1";
+const CASES_PER_DAY = 6;
 
-function formatNumber(value: number) {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 10_000) return `${(value / 1_000).toFixed(1)}K`;
-  return Math.floor(value).toLocaleString("ru-RU");
-}
+const money = (value: number) => `$${Math.max(0, Math.round(value)).toLocaleString("en-US")}`;
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
-function todayKey() {
-  return new Date().toISOString().slice(0, 10);
-}
+export default function PawnShopGame() {
+  const [view, setView] = useState<View>("counter");
+  const [state, setState] = useState<SaveState>(INITIAL_STATE);
+  const [offer, setOffer] = useState(450);
+  const [checks, setChecks] = useState<CheckType[]>([]);
+  const [counterOffer, setCounterOffer] = useState<number | null>(null);
+  const [toast, setToast] = useState<{ text: string; tone: ToastTone } | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
-export default function Home() {
-  const [game, setGame] = useState<GameSave>(initialSave);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [battle, setBattle] = useState<Battle | null>(null);
-  const [capsuleOpen, setCapsuleOpen] = useState(false);
-  const [lastDrop, setLastDrop] = useState<Creature | null>(null);
-  const [toast, setToast] = useState("Лаборатория готова. Создай первого мемозверя!");
-  const [activePanel, setActivePanel] = useState<"lab" | "collection">("lab");
-  const [soundOn, setSoundOn] = useState(true);
-  const [offlineReward, setOfflineReward] = useState(0);
-  const hydrated = useRef(false);
-  const audioContext = useRef<AudioContext | null>(null);
+  const scenario = SCENARIOS[state.caseIndex % SCENARIOS.length];
+  const customer = CUSTOMERS.find((entry) => entry.id === scenario.customer) ?? CUSTOMERS[0];
+  const item = ITEMS.find((entry) => entry.id === scenario.item) ?? ITEMS[0];
+  const floorOffer = Math.max(25, Math.round(scenario.ask * 0.45 / 10) * 10);
+  const ceilingOffer = Math.round(scenario.ask * 1.1 / 10) * 10;
+  const dayProgress = (state.servedToday / CASES_PER_DAY) * 100;
 
-  const getCreature = useCallback(
-    (owned: OwnedCreature) => creatureById.get(owned.creatureId) ?? creatures[0],
-    [],
-  );
-
-  const teamCreatures = useMemo(
+  const ownedWithData = useMemo(
     () =>
-      game.team
-        .map((teamUid) => game.inventory.find((item) => item.uid === teamUid))
-        .filter((item): item is OwnedCreature => Boolean(item))
-        .map(getCreature),
-    [game.inventory, game.team, getCreature],
+      state.inventory.map((owned) => ({
+        ...owned,
+        item: ITEMS.find((entry) => entry.id === owned.itemId) ?? ITEMS[0],
+      })),
+    [state.inventory],
   );
 
-  const teamPower = useMemo(
-    () => teamCreatures.reduce((total, creature) => total + creature.attack, 0),
-    [teamCreatures],
-  );
-
-  const passiveIncome = useMemo(
+  const stockValue = useMemo(
     () =>
-      game.inventory.reduce(
-        (total, owned) => total + getCreature(owned).income,
-        0,
-      ),
-    [game.inventory, getCreature],
-  );
-
-  const capsuleCost = 65 + Math.floor(game.wave * 4.5);
-  const selectedOwned = selected
-    .map((selectedUid) => game.inventory.find((item) => item.uid === selectedUid))
-    .filter((item): item is OwnedCreature => Boolean(item));
-  const canMerge =
-    selectedOwned.length === 2 &&
-    selectedOwned[0].creatureId === selectedOwned[1].creatureId &&
-    getCreature(selectedOwned[0]).tier < 4;
-
-  const playTone = useCallback(
-    (frequency = 440, duration = 0.08) => {
-      if (!soundOn || typeof window === "undefined") return;
-      const AudioContextClass = window.AudioContext;
-      if (!AudioContextClass) return;
-      const context = audioContext.current ?? new AudioContextClass();
-      audioContext.current = context;
-      const oscillator = context.createOscillator();
-      const gain = context.createGain();
-      oscillator.frequency.value = frequency;
-      oscillator.type = "sine";
-      gain.gain.setValueAtTime(0.055, context.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + duration);
-      oscillator.connect(gain);
-      gain.connect(context.destination);
-      oscillator.start();
-      oscillator.stop(context.currentTime + duration);
-    },
-    [soundOn],
+      ownedWithData.reduce((sum, owned) => {
+        const authenticity = owned.authentic ? 1 : 0.08;
+        const condition = owned.repaired ? 1.04 : 0.58 + owned.condition / 250;
+        return sum + owned.item.market * authenticity * condition;
+      }, 0),
+    [ownedWithData],
   );
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(SAVE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as GameSave;
-        const elapsedSeconds = Math.min(
-          4 * 60 * 60,
-          Math.max(0, (Date.now() - (parsed.lastSeen || Date.now())) / 1000),
-        );
-        const storedIncome = parsed.inventory.reduce(
-          (total, owned) => total + (creatureById.get(owned.creatureId)?.income ?? 0),
-          0,
-        );
-        const reward = Math.floor((elapsedSeconds / 8) * storedIncome);
-        setOfflineReward(reward);
-        setGame({
-          ...initialSave,
-          ...parsed,
-          coins: parsed.coins + reward,
-          lastSeen: Date.now(),
-        });
+      const saved = window.localStorage.getItem(SAVE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as Partial<SaveState>;
+        setState({ ...INITIAL_STATE, ...parsed, inventory: Array.isArray(parsed.inventory) ? parsed.inventory : [] });
       }
     } catch {
-      setToast("Начинаем новую лабораторию — старое сохранение повреждено.");
-    } finally {
-      hydrated.current = true;
+      // A damaged save should never block the game.
     }
+    setLoaded(true);
   }, []);
 
   useEffect(() => {
-    if (!hydrated.current) return;
-    const save = { ...game, lastSeen: Date.now() };
-    localStorage.setItem(SAVE_KEY, JSON.stringify(save));
-    const cloudTimer = window.setTimeout(() => {
-      window.yandexPlayer?.setData({ memobeastsSave: save }, false).catch(() => undefined);
-    }, 1800);
-    return () => window.clearTimeout(cloudTimer);
-  }, [game]);
+    if (!loaded) return;
+    window.localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+  }, [loaded, state]);
 
   useEffect(() => {
-    const interval = window.setInterval(() => {
-      setGame((previous) => ({
-        ...previous,
-        coins: previous.coins + Math.max(1, previous.inventory.reduce(
-          (total, owned) => total + (creatureById.get(owned.creatureId)?.income ?? 0),
-          0,
-        )),
-      }));
-    }, 8000);
-    return () => window.clearInterval(interval);
+    setOffer(Math.round(scenario.ask * 0.72 / 10) * 10);
+    setChecks([]);
+    setCounterOffer(null);
+  }, [state.caseIndex, scenario.ask]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timeout = window.setTimeout(() => setToast(null), 2800);
+    return () => window.clearTimeout(timeout);
+  }, [toast]);
+
+  const notify = useCallback((text: string, tone: ToastTone = "neutral") => {
+    setToast({ text, tone });
   }, []);
 
-  useEffect(() => {
-    const script = document.createElement("script");
-    script.src = "https://sdk.games.s3.yandex.net/sdk.js";
-    script.async = true;
-    script.onload = async () => {
-      try {
-        if (window.YaGames) {
-          window.ysdk = await window.YaGames.init();
-          try {
-            window.yandexPlayer = await window.ysdk.getPlayer?.();
-            const cloudData = await window.yandexPlayer?.getData(["memobeastsSave"]);
-            const cloudSave = cloudData?.memobeastsSave as GameSave | undefined;
-            if (cloudSave?.inventory?.length) {
-              setGame((localSave) =>
-                (cloudSave.lastSeen ?? 0) > (localSave.lastSeen ?? 0)
-                  ? { ...initialSave, ...cloudSave }
-                  : localSave,
-              );
-            }
-          } catch {
-            // Anonymous and offline players continue with local progress.
-          }
-          window.ysdk.features?.LoadingAPI?.ready();
-        }
-      } catch {
-        // The game remains fully playable outside Yandex Games.
-      }
-    };
-    document.head.appendChild(script);
-    return () => script.remove();
-  }, []);
-
-  useEffect(() => {
-    if (!battle) return;
-    const tick = window.setInterval(() => {
-      setBattle((previous) => {
-        if (!previous) return null;
+  const finishCase = useCallback(
+    (patch: Partial<SaveState> = {}) => {
+      setState((current) => {
+        const nextServed = current.servedToday + 1;
+        const closesDay = nextServed >= CASES_PER_DAY;
+        const rent = closesDay ? 180 : 0;
         return {
-          ...previous,
-          hp: Math.max(0, previous.hp - Math.max(1, teamPower / 4)),
-          time: Math.max(0, previous.time - 0.25),
+          ...current,
+          ...patch,
+          cash: (patch.cash ?? current.cash) - rent,
+          day: current.day + (closesDay ? 1 : 0),
+          servedToday: closesDay ? 0 : nextServed,
+          caseIndex: current.caseIndex + 1,
         };
       });
-    }, 250);
-    return () => window.clearInterval(tick);
-  }, [battle?.boss, teamPower]);
+    },
+    [],
+  );
 
-  useEffect(() => {
-    if (!battle || battle.hp > 0) return;
-    const reward = Math.floor((70 + game.wave * 22) * (battle.boss ? 2.2 : 1));
-    const essenceReward = battle.boss ? 3 : game.wave % 3 === 0 ? 1 : 0;
-    setGame((previous) => ({
-      ...previous,
-      coins: previous.coins + reward,
-      essence: previous.essence + essenceReward,
-      wave: previous.wave + 1,
-    }));
-    window.ysdk?.features?.GameplayAPI?.stop();
-    setBattle(null);
-    setToast(
-      battle.boss
-        ? `БОСС ПОВЕРЖЕН! +${reward} монет и +${essenceReward} ДНК`
-        : `Волна очищена! +${reward} монет`,
-    );
-    playTone(battle.boss ? 880 : 660, 0.18);
-  }, [battle, game.wave, playTone]);
-
-  useEffect(() => {
-    if (!battle || battle.time > 0 || battle.hp <= 0) return;
-    setBattle(null);
-    window.ysdk?.features?.GameplayAPI?.stop();
-    setToast("Время вышло. Усиль команду слиянием и попробуй снова!");
-    playTone(180, 0.2);
-  }, [battle, playTone]);
-
-  const selectCreature = (selectedUid: string) => {
-    if (battle) return;
-    playTone(420);
-    setSelected((previous) => {
-      if (previous.includes(selectedUid)) {
-        return previous.filter((value) => value !== selectedUid);
-      }
-      return [...previous.slice(-1), selectedUid];
-    });
-  };
-
-  const mergeCreatures = () => {
-    if (!canMerge) {
-      setToast("Для слияния выбери двух одинаковых мемозверей.");
-      playTone(170);
+  const runCheck = (type: CheckType) => {
+    if (checks.includes(type)) return;
+    const costs: Record<CheckType, number> = { auth: 18, serial: 24, value: 12 };
+    if (state.cash < costs[type]) {
+      notify("Не хватает денег на проверку", "bad");
       return;
     }
-    const source = getCreature(selectedOwned[0]);
-    const evolved = creatures.find(
-      (creature) => creature.family === source.family && creature.tier === source.tier + 1,
-    );
-    if (!evolved) return;
-    const mergedUid = uid();
-    const selectedWasInTeam = selected.some((selectedUid) =>
-      game.team.includes(selectedUid),
-    );
-    setGame((previous) => {
-      const remainingInventory = previous.inventory.filter(
-        (item) => !selected.includes(item.uid),
-      );
-      const remainingTeam = previous.team.filter(
-        (teamUid) => !selected.includes(teamUid),
-      );
-      return {
-        ...previous,
-        inventory: [...remainingInventory, { uid: mergedUid, creatureId: evolved.id }],
-        team:
-          selectedWasInTeam && remainingTeam.length < 3
-            ? [...remainingTeam, mergedUid]
-            : remainingTeam,
-        unlocked: previous.unlocked.includes(evolved.id)
-          ? previous.unlocked
-          : [...previous.unlocked, evolved.id],
-      };
-    });
-    setSelected([mergedUid]);
-    setLastDrop(evolved);
-    setToast(`ЭВОЛЮЦИЯ! Открыт ${evolved.name}`);
-    playTone(740, 0.22);
+    setState((current) => ({ ...current, cash: current.cash - costs[type] }));
+    setChecks((current) => [...current, type]);
+    notify(type === "auth" ? "Эксперт закончил осмотр" : type === "serial" ? "База серийных номеров ответила" : "Рынок проанализирован", "good");
   };
 
-  const openCapsule = () => {
-    if (capsuleOpen || battle) return;
-    if (game.coins < capsuleCost) {
-      setToast(`Нужно ещё ${capsuleCost - game.coins} монет.`);
-      playTone(170);
+  const buyItem = () => {
+    if (offer > state.cash) {
+      notify("В кассе недостаточно денег", "bad");
       return;
     }
-    setGame((previous) => ({ ...previous, coins: previous.coins - capsuleCost }));
-    setCapsuleOpen(true);
-    setLastDrop(null);
-    playTone(330, 0.12);
-    window.setTimeout(() => {
-      const lucky = game.wave >= 5 && Math.random() < Math.min(0.18, game.wave / 120);
-      const pool = lucky
-        ? creatures.filter((creature) => creature.tier === 1)
-        : baseCreatureIds.map((id) => creatureById.get(id) as Creature);
-      const dropped = pool[Math.floor(Math.random() * pool.length)];
-      const newOwned = { uid: uid(), creatureId: dropped.id };
-      setGame((previous) => ({
-        ...previous,
-        inventory: [...previous.inventory, newOwned],
-        unlocked: previous.unlocked.includes(dropped.id)
-          ? previous.unlocked
-          : [...previous.unlocked, dropped.id],
-      }));
-      setLastDrop(dropped);
-      setSelected([newOwned.uid]);
-      setCapsuleOpen(false);
-      setToast(`${dropped.name}: «${dropped.phrase}»`);
-      playTone(lucky ? 920 : 560, 0.2);
-    }, 850);
-  };
-
-  const toggleTeam = () => {
-    if (selectedOwned.length !== 1) {
-      setToast("Выбери одного мемозверя для команды.");
+    if (offer < scenario.min && counterOffer === null) {
+      const nextCounter = Math.round((scenario.min + offer * 0.18) / 10) * 10;
+      setCounterOffer(nextCounter);
+      setOffer(nextCounter);
+      notify(`${customer.name}: меньше ${money(nextCounter)} не отдам`, "neutral");
       return;
     }
-    const selectedUid = selectedOwned[0].uid;
-    setGame((previous) => {
-      if (previous.team.includes(selectedUid)) {
-        return {
-          ...previous,
-          team: previous.team.filter((teamUid) => teamUid !== selectedUid),
-        };
-      }
-      if (previous.team.length >= 3) {
-        setToast("В команде только 3 места. Сначала убери одного бойца.");
-        return previous;
-      }
-      return { ...previous, team: [...previous.team, selectedUid] };
-    });
-    playTone(510);
-  };
-
-  const startBattle = () => {
-    if (battle || teamCreatures.length === 0) {
-      if (teamCreatures.length === 0) setToast("Собери хотя бы одного бойца.");
+    if (offer < scenario.min) {
+      notify("Клиент забрал вещь и ушёл", "bad");
+      finishCase({ reputation: clamp(state.reputation - 1, 0, 100) });
       return;
     }
-    const boss = game.wave % 5 === 0;
-    const maxHp = Math.floor((75 + Math.pow(game.wave, 1.48) * 28) * (boss ? 2.15 : 1));
-    setSelected([]);
-    setBattle({ hp: maxHp, maxHp, time: boss ? 22 : 16, boss });
-    window.ysdk?.features?.GameplayAPI?.start();
-    setToast(boss ? "ВНИМАНИЕ: нестабильная мутация!" : `Волна ${game.wave} началась!`);
-    playTone(boss ? 120 : 260, 0.18);
-  };
-
-  const tapEnemy = () => {
-    if (!battle) return;
-    setBattle((previous) =>
-      previous
-        ? { ...previous, hp: Math.max(0, previous.hp - Math.max(3, 5 + teamPower * 0.12)) }
-        : null,
-    );
-    playTone(250 + Math.random() * 80, 0.04);
-  };
-
-  const claimDaily = () => {
-    if (game.dailyClaim === todayKey()) {
-      setToast("Сегодняшний контейнер уже получен. Возвращайся завтра!");
-      return;
-    }
-    const reward = 260 + game.wave * 20;
-    setGame((previous) => ({
-      ...previous,
-      coins: previous.coins + reward,
-      dailyClaim: todayKey(),
-    }));
-    setToast(`Ежедневный контейнер: +${reward} монет`);
-    playTone(800, 0.2);
-  };
-
-  const rewardedBonus = async () => {
-    const grant = () => {
-      const reward = Math.max(180, passiveIncome * 25);
-      setGame((previous) => ({ ...previous, coins: previous.coins + reward }));
-      setToast(`Ускоритель лаборатории: +${reward} монет`);
-      playTone(840, 0.2);
+    const owned: OwnedItem = {
+      uid: `${Date.now()}-${scenario.item}`,
+      itemId: scenario.item,
+      buyPrice: offer,
+      condition: scenario.condition,
+      authentic: scenario.authentic,
+      repaired: false,
     };
-    if (window.ysdk?.adv) {
-      window.ysdk.adv.showRewardedVideo({
-        onRewarded: grant,
-        onClose: () => undefined,
-        onError: () => setToast("Реклама сейчас недоступна. Попробуй чуть позже."),
+    notify(`Сделка закрыта: ${item.name} за ${money(offer)}`, scenario.authentic && !scenario.stolen ? "good" : "neutral");
+    finishCase({
+      cash: state.cash - offer,
+      inventory: [...state.inventory, owned],
+      deals: state.deals + 1,
+    });
+  };
+
+  const callPolice = () => {
+    if (scenario.stolen) {
+      notify("Полиция подтвердила кражу. Репутация выросла!", "good");
+      finishCase({
+        cash: state.cash + 120,
+        reputation: clamp(state.reputation + 7, 0, 100),
+        policeWins: state.policeWins + 1,
       });
     } else {
-      grant();
+      notify("Ошибка: вещь чистая. Компенсация клиенту — $90", "bad");
+      finishCase({
+        cash: state.cash - 90,
+        reputation: clamp(state.reputation - 6, 0, 100),
+      });
     }
   };
 
+  const refuse = () => {
+    notify("Вы отказались от сделки", "neutral");
+    finishCase();
+  };
+
+  const repair = (owned: OwnedItem, repairCost: number) => {
+    if (owned.repaired) return;
+    if (state.cash < repairCost) {
+      notify("Не хватает денег на ремонт", "bad");
+      return;
+    }
+    setState((current) => ({
+      ...current,
+      cash: current.cash - repairCost,
+      inventory: current.inventory.map((entry) =>
+        entry.uid === owned.uid ? { ...entry, repaired: true, condition: 100 } : entry,
+      ),
+    }));
+    notify("Предмет восстановлен и готов к витрине", "good");
+  };
+
+  const salePrice = (owned: OwnedItem, market: number) => {
+    if (!owned.authentic) return Math.round(market * 0.06);
+    const multiplier = owned.repaired ? 1.05 : 0.58 + owned.condition / 240;
+    return Math.round(market * multiplier);
+  };
+
+  const sell = (owned: OwnedItem, market: number) => {
+    const price = salePrice(owned, market);
+    const profit = price - owned.buyPrice;
+    setState((current) => ({
+      ...current,
+      cash: current.cash + price,
+      totalProfit: current.totalProfit + profit,
+      reputation: clamp(current.reputation + (profit > 0 ? 1 : -1), 0, 100),
+      inventory: current.inventory.filter((entry) => entry.uid !== owned.uid),
+    }));
+    notify(profit >= 0 ? `Продано. Прибыль ${money(profit)}` : `Продано с убытком ${money(Math.abs(profit))}`, profit >= 0 ? "good" : "bad");
+  };
+
+  const resetGame = () => {
+    if (!window.confirm("Начать новую игру? Текущий прогресс будет удалён.")) return;
+    setState(INITIAL_STATE);
+    setView("counter");
+    notify("Новая смена началась", "neutral");
+  };
+
+  const checkCards = [
+    {
+      type: "auth" as const,
+      icon: ScanLine,
+      label: "Экспертиза",
+      sub: "$18",
+      result: scenario.authentic ? "Материалы и маркировка подлинные" : "Найдены признаки подделки",
+    },
+    {
+      type: "serial" as const,
+      icon: Fingerprint,
+      label: "Серийный номер",
+      sub: "$24",
+      result: scenario.stolen ? "Совпадение с базой украденных вещей" : "Совпадений в базе нет",
+    },
+    {
+      type: "value" as const,
+      icon: TrendingUp,
+      label: "Оценка рынка",
+      sub: "$12",
+      result: `Цена продажи: ${money(item.market * 0.82)}–${money(item.market * 1.08)}`,
+    },
+  ];
+
   return (
-    <main className="game-shell">
-      <div className="ambient ambient-one" />
-      <div className="ambient ambient-two" />
+    <main className="app-shell">
+      <aside className="side-rail">
+        <div className="brand-mark" aria-label="Pawn Shop">
+          <span><BadgeDollarSign size={27} /></span>
+          <strong>PAWN</strong>
+        </div>
+        <nav aria-label="Разделы игры">
+          <NavButton view="counter" current={view} onClick={setView} icon={HandCoins} label="Приёмка" />
+          <NavButton view="stock" current={view} onClick={setView} icon={ShoppingBag} label="Витрина" badge={state.inventory.length} />
+          <NavButton view="workshop" current={view} onClick={setView} icon={Wrench} label="Мастерская" />
+          <NavButton view="ledger" current={view} onClick={setView} icon={BookOpenText} label="Отчёт" />
+        </nav>
+        <div className="rail-footer">
+          <span>Репутация</span>
+          <strong><Star size={15} fill="currentColor" /> {state.reputation}</strong>
+        </div>
+      </aside>
 
-      <header className="topbar">
-        <div className="brand">
-          <div className="brand-mark" aria-hidden="true">🧬</div>
+      <section className="game-shell">
+        <header className="topbar">
           <div>
-            <span className="eyebrow">MEMOBEASTS LAB</span>
-            <h1>Лаборатория мутаций</h1>
+            <p className="eyebrow">ЛОМБАРД «ЗОЛОТОЙ УГОЛ»</p>
+            <h1>{view === "counter" ? "Приёмка" : view === "stock" ? "Витрина" : view === "workshop" ? "Мастерская" : "Книга учёта"}</h1>
           </div>
+          <div className="top-resources">
+            <div className="resource-pill"><Banknote size={19} /><span>Касса</span><strong>{money(state.cash)}</strong></div>
+            <div className="resource-pill day-pill"><Clock3 size={18} /><span>День</span><strong>{state.day}</strong></div>
+          </div>
+        </header>
+
+        <div className="day-strip">
+          <span style={{ width: `${dayProgress}%` }} />
+          <p>{state.servedToday}/{CASES_PER_DAY} клиентов · в конце дня аренда $180</p>
         </div>
-        <div className="resources">
-          <div className="resource-pill">
-            <span>🪙</span>
-            <strong>{formatNumber(game.coins)}</strong>
-          </div>
-          <div className="resource-pill dna">
-            <span>🧬</span>
-            <strong>{formatNumber(game.essence)}</strong>
-          </div>
-          <button
-            className="icon-button"
-            onClick={() => setSoundOn((value) => !value)}
-            aria-label={soundOn ? "Выключить звук" : "Включить звук"}
-          >
-            {soundOn ? "🔊" : "🔇"}
-          </button>
-        </div>
-      </header>
 
-      <section className="mission-strip">
-        <div>
-          <span className="status-dot" />
-          <strong>Сектор {Math.ceil(game.wave / 5)}</strong>
-          <span>Волна {game.wave}</span>
-        </div>
-        <div className="power-readout">
-          Сила команды <strong>{formatNumber(teamPower)}</strong>
-        </div>
-      </section>
-
-      <div className="game-grid">
-        <section className="arena-panel panel">
-          <div className="arena-heading">
-            <div>
-              <span className="panel-kicker">ИСПЫТАТЕЛЬНАЯ КАМЕРА</span>
-              <h2>{battle?.boss ? "Босс-мутация" : `Волна ${game.wave}`}</h2>
-            </div>
-            <span className={`wave-badge ${game.wave % 5 === 0 ? "boss" : ""}`}>
-              {game.wave % 5 === 0 ? "BOSS" : `${game.wave}/∞`}
-            </span>
-          </div>
-
-          <div className={`arena ${battle ? "is-fighting" : ""}`}>
-            <div className="scan-lines" />
-            <div className="team-stage">
-              {[0, 1, 2].map((index) => {
-                const creature = teamCreatures[index];
-                return (
-                  <div className={`team-slot ${creature ? "filled" : ""}`} key={index}>
-                    {creature ? (
-                      <>
-                        <div
-                          className="mini-creature"
-                          style={{ "--creature-color": creature.color } as React.CSSProperties}
-                        >
-                          <span>{creature.emoji}</span>
-                          <small>{creature.object}</small>
-                        </div>
-                        <b>{creature.name.split(" ")[0]}</b>
-                      </>
-                    ) : (
-                      <span className="empty-slot">+</span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            <button
-              className={`enemy-core ${battle?.boss ? "boss-core" : ""}`}
-              onClick={tapEnemy}
-              disabled={!battle}
-              aria-label="Атаковать мутацию"
-            >
-              <span className="enemy-aura" />
-              <span className="enemy-face">{battle?.boss ? "👾" : "🦠"}</span>
-              {battle && <span className="tap-hint">ЖМИ!</span>}
-            </button>
-
-            <div className="arena-floor" />
-          </div>
-
-          {battle ? (
-            <div className="battle-ui">
-              <div className="health-copy">
-                <span>{battle.boss ? "КРИТИЧЕСКАЯ МУТАЦИЯ" : "НЕСТАБИЛЬНАЯ КЛЕТКА"}</span>
-                <strong>{Math.ceil(battle.time)} сек</strong>
+        {view === "counter" && (
+          <section className="counter-screen">
+            <div className="customer-stage">
+              <div className="scene-glow" />
+              <div className="customer-copy">
+                <span className="queue-label"><UsersRound size={15} /> Клиент #{state.servedToday + 1}</span>
+                <h2>{customer.name}</h2>
+                <p>{customer.role}</p>
               </div>
-              <div className="health-track">
-                <div
-                  className="health-fill"
-                  style={{ width: `${(battle.hp / battle.maxHp) * 100}%` }}
+              <img className="customer-portrait" src={customer.image} alt={customer.name} />
+              <div className="dialogue">
+                <UserRound size={20} />
+                <p>«{scenario.story}»</p>
+              </div>
+              <div className="patience">
+                <span>Терпение</span>
+                <div><i style={{ width: `${customer.patience}%` }} /></div>
+              </div>
+            </div>
+
+            <div className="deal-desk">
+              <article className="item-hero">
+                <div className="item-visual">
+                  <img src={item.image} alt={item.name} />
+                  <span className="condition-chip">{scenario.condition}% состояние</span>
+                </div>
+                <div className="item-title">
+                  <span>{item.category}</span>
+                  <h2>{item.name}</h2>
+                  <div className="ask-row">
+                    <p>Цена клиента</p>
+                    <strong>{money(scenario.ask)}</strong>
+                  </div>
+                </div>
+              </article>
+
+              <section className="inspection-panel">
+                <div className="section-heading">
+                  <div><Search size={18} /><span>Проверка предмета</span></div>
+                  <small>Проверки платные, но снижают риск</small>
+                </div>
+                <div className="check-grid">
+                  {checkCards.map((check) => {
+                    const checked = checks.includes(check.type);
+                    const Icon = check.icon;
+                    return (
+                      <button className={`check-card ${checked ? "checked" : ""}`} key={check.type} onClick={() => runCheck(check.type)}>
+                        <span className="check-icon">{checked ? <Check size={18} /> : <Icon size={19} />}</span>
+                        <span><strong>{check.label}</strong><small>{checked ? check.result : check.sub}</small></span>
+                        {!checked && <ChevronRight size={17} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="offer-panel">
+                <div className="offer-head">
+                  <div>
+                    <span>Ваше предложение</span>
+                    <strong>{money(offer)}</strong>
+                  </div>
+                  {counterOffer && <span className="counter-badge">Встречная цена</span>}
+                </div>
+                <input
+                  aria-label="Сумма предложения"
+                  type="range"
+                  min={floorOffer}
+                  max={ceilingOffer}
+                  step={10}
+                  value={offer}
+                  onChange={(event) => setOffer(Number(event.target.value))}
                 />
-              </div>
-              <small>{Math.ceil(battle.hp)} / {battle.maxHp} HP</small>
+                <div className="range-labels"><span>{money(floorOffer)}</span><span>{money(ceilingOffer)}</span></div>
+                <div className="deal-actions">
+                  <button className="secondary-action danger" onClick={callPolice}><ShieldAlert size={19} /><span>Полиция</span></button>
+                  <button className="secondary-action" onClick={refuse}><X size={19} /><span>Отказать</span></button>
+                  <button className="primary-action" onClick={buyItem}><HandCoins size={20} /><span>Предложить {money(offer)}</span></button>
+                </div>
+              </section>
             </div>
-          ) : (
-            <button className="primary-action battle-button" onClick={startBattle}>
-              <span>{game.wave % 5 === 0 ? "⚠️ НАЧАТЬ БИТВУ С БОССОМ" : "⚔️ НАЧАТЬ ВОЛНУ"}</span>
-              <small>награда {formatNumber(Math.floor((70 + game.wave * 22) * (game.wave % 5 === 0 ? 2.2 : 1)))} 🪙</small>
-            </button>
-          )}
-        </section>
+          </section>
+        )}
 
-        <aside className="lab-panel panel">
-          <div className="tabs" role="tablist" aria-label="Разделы лаборатории">
-            <button
-              className={activePanel === "lab" ? "active" : ""}
-              onClick={() => setActivePanel("lab")}
-              role="tab"
-            >
-              Лаборатория
-            </button>
-            <button
-              className={activePanel === "collection" ? "active" : ""}
-              onClick={() => setActivePanel("collection")}
-              role="tab"
-            >
-              Коллекция <span>{game.unlocked.length}/15</span>
-            </button>
-          </div>
-
-          {activePanel === "lab" ? (
-            <>
-              <div className="capsule-zone">
-                <div className={`capsule-machine ${capsuleOpen ? "opening" : ""}`}>
-                  <div className="machine-glow" />
-                  <div className="capsule-top" />
-                  <div className="capsule-window">
-                    {lastDrop ? (
-                      <div
-                        className="drop-creature"
-                        style={{ "--creature-color": lastDrop.color } as React.CSSProperties}
-                      >
-                        <span>{lastDrop.emoji}</span>
-                        <small>{lastDrop.object}</small>
-                      </div>
-                    ) : (
-                      <span className="question-mark">?</span>
-                    )}
-                  </div>
-                  <div className="capsule-base">MUTA • 01</div>
-                </div>
-                <div className="capsule-copy">
-                  <span className="panel-kicker">СИНТЕЗАТОР</span>
-                  <h3>{lastDrop?.name ?? "Капсула мутации"}</h3>
-                  <p>
-                    {lastDrop
-                      ? `${lastDrop.rarity} · ${lastDrop.ability}`
-                      : "Создаёт одного базового мемозверя. После 5-й волны может выпасть редкий."}
-                  </p>
-                  <button
-                    className="primary-action capsule-button"
-                    onClick={openCapsule}
-                    disabled={capsuleOpen || Boolean(battle)}
-                  >
-                    {capsuleOpen ? "СИНТЕЗ..." : `ОТКРЫТЬ · ${capsuleCost} 🪙`}
-                  </button>
-                </div>
-              </div>
-
-              <div className="inventory-heading">
-                <div>
-                  <span className="panel-kicker">ХРАНИЛИЩЕ</span>
-                  <h3>Мемозвери <small>{game.inventory.length}</small></h3>
-                </div>
-                <span className="income-badge">+{passiveIncome} / 8 сек</span>
-              </div>
-
+        {view === "stock" && (
+          <section className="content-screen">
+            <div className="screen-intro">
+              <div><span className="icon-box"><Store size={24} /></span><div><h2>Витрина магазина</h2><p>Выставляйте купленные вещи и фиксируйте прибыль.</p></div></div>
+              <div className="summary-value"><span>Оценка запасов</span><strong>{money(stockValue)}</strong></div>
+            </div>
+            {ownedWithData.length === 0 ? (
+              <EmptyState icon={PackageOpen} title="Витрина пока пустая" text="Заключите первую сделку на приёмке — товар появится здесь." action={() => setView("counter")} actionText="Перейти к клиенту" />
+            ) : (
               <div className="inventory-grid">
-                {game.inventory.map((owned) => {
-                  const creature = getCreature(owned);
-                  const isSelected = selected.includes(owned.uid);
-                  const isInTeam = game.team.includes(owned.uid);
+                {ownedWithData.map((owned) => {
+                  const price = salePrice(owned, owned.item.market);
+                  const profit = price - owned.buyPrice;
                   return (
-                    <button
-                      className={`creature-card tier-${creature.tier} ${isSelected ? "selected" : ""}`}
-                      onClick={() => selectCreature(owned.uid)}
-                      key={owned.uid}
-                      style={{ "--creature-color": creature.color } as React.CSSProperties}
-                    >
-                      {isInTeam && <span className="team-tag">TEAM</span>}
-                      <div className="card-avatar">
-                        <span>{creature.emoji}</span>
-                        <small>{creature.object}</small>
+                    <article className="inventory-card" key={owned.uid}>
+                      <div className="inventory-image"><img src={owned.item.image} alt={owned.item.name} />{!owned.authentic && <span className="fake-label">ПОДДЕЛКА</span>}</div>
+                      <div className="inventory-body">
+                        <span>{owned.item.category}</span>
+                        <h3>{owned.item.name}</h3>
+                        <div className="item-numbers">
+                          <p><span>Закупка</span><strong>{money(owned.buyPrice)}</strong></p>
+                          <p><span>Продажа</span><strong>{money(price)}</strong></p>
+                        </div>
+                        <button className="sell-button" onClick={() => sell(owned, owned.item.market)}>
+                          <Tag size={18} /><span>Продать</span><strong className={profit >= 0 ? "profit" : "loss"}>{profit >= 0 ? "+" : "−"}{money(Math.abs(profit))}</strong>
+                        </button>
                       </div>
-                      <b>{creature.name}</b>
-                      <span>{creature.rarity}</span>
-                      <div className="card-stats">
-                        <small>⚔ {creature.attack}</small>
-                        <small>🪙 {creature.income}</small>
-                      </div>
-                    </button>
+                    </article>
                   );
                 })}
               </div>
+            )}
+          </section>
+        )}
 
-              <div className="selection-actions">
-                <button className="secondary-action" onClick={toggleTeam}>
-                  {selectedOwned.length === 1 && game.team.includes(selectedOwned[0].uid)
-                    ? "УБРАТЬ ИЗ КОМАНДЫ"
-                    : "В КОМАНДУ"}
-                </button>
-                <button
-                  className={`merge-action ${canMerge ? "ready" : ""}`}
-                  onClick={mergeCreatures}
-                >
-                  <span>🧬 СЛИТЬ</span>
-                  <small>{selected.length}/2 выбрано</small>
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="collection-view">
-              <div className="collection-intro">
-                <span className="panel-kicker">АРХИВ ДНК</span>
-                <h3>Открыто {game.unlocked.length} из 15</h3>
-                <p>Сливай двух одинаковых существ, чтобы открыть следующую мутацию семьи.</p>
-              </div>
-              <div className="collection-grid">
-                {creatures.map((creature) => {
-                  const unlocked = game.unlocked.includes(creature.id);
-                  return (
-                    <div
-                      className={`collection-card ${unlocked ? "unlocked" : "locked"}`}
-                      key={creature.id}
-                      style={{ "--creature-color": creature.color } as React.CSSProperties}
-                    >
-                      <div className="collection-avatar">
-                        {unlocked ? (
-                          <>
-                            <span>{creature.emoji}</span>
-                            <small>{creature.object}</small>
-                          </>
-                        ) : (
-                          "?"
-                        )}
-                      </div>
-                      <div>
-                        <b>{unlocked ? creature.name : "НЕИЗВЕСТНАЯ ДНК"}</b>
-                        <span>{creature.rarity} · T{creature.tier + 1}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+        {view === "workshop" && (
+          <section className="content-screen">
+            <div className="screen-intro">
+              <div><span className="icon-box"><Hammer size={24} /></span><div><h2>Мастерская</h2><p>Ремонт повышает цену, но не спасает подделки.</p></div></div>
+              <div className="summary-value"><span>Мастер</span><strong>ур. 1</strong></div>
             </div>
-          )}
-        </aside>
-      </div>
+            {ownedWithData.length === 0 ? (
+              <EmptyState icon={Wrench} title="Ремонтировать пока нечего" text="Купите предмет на приёмке, затем оцените выгоду ремонта." action={() => setView("counter")} actionText="Открыть приёмку" />
+            ) : (
+              <div className="repair-list">
+                {ownedWithData.map((owned) => {
+                  const before = salePrice(owned, owned.item.market);
+                  const after = owned.authentic ? Math.round(owned.item.market * 1.05) : Math.round(owned.item.market * 0.06);
+                  return (
+                    <article className="repair-row" key={owned.uid}>
+                      <img src={owned.item.image} alt={owned.item.name} />
+                      <div className="repair-info">
+                        <span>{owned.item.category}</span>
+                        <h3>{owned.item.name}</h3>
+                        <div className="condition-bar"><i style={{ width: `${owned.condition}%` }} /></div>
+                        <small>{owned.repaired ? "Полностью восстановлен" : `Состояние ${owned.condition}%`}</small>
+                      </div>
+                      <div className="repair-value">
+                        <span>После ремонта</span>
+                        <strong>{money(after)}</strong>
+                        <small>сейчас {money(before)}</small>
+                      </div>
+                      <button disabled={owned.repaired} onClick={() => repair(owned, owned.item.repairCost)}>
+                        {owned.repaired ? <><Check size={18} /> Готово</> : <><Wrench size={18} /> Ремонт {money(owned.item.repairCost)}</>}
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
 
-      <section className="boost-bar">
-        <div className="toast-message" aria-live="polite">
-          <span>●</span>
-          {toast}
-        </div>
-        <div className="boost-actions">
-          <button onClick={claimDaily} disabled={game.dailyClaim === todayKey()}>
-            🎁 {game.dailyClaim === todayKey() ? "Получено" : "Ежедневный контейнер"}
-          </button>
-          <button onClick={rewardedBonus}>▶ Ускоритель ×25</button>
-        </div>
+        {view === "ledger" && (
+          <section className="content-screen ledger-screen">
+            <div className="screen-intro">
+              <div><span className="icon-box"><BookOpenText size={24} /></span><div><h2>Книга учёта</h2><p>Главные результаты вашего ломбарда.</p></div></div>
+              <button className="reset-button" onClick={resetGame}><History size={17} /> Новая игра</button>
+            </div>
+            <div className="stats-grid">
+              <StatCard icon={CircleDollarSign} label="Чистая прибыль" value={money(state.totalProfit)} note="с проданных товаров" tone="green" />
+              <StatCard icon={ShoppingBag} label="Успешных сделок" value={String(state.deals)} note={`${state.inventory.length} предметов в запасе`} tone="gold" />
+              <StatCard icon={ShieldCheck} label="Краденых найдено" value={String(state.policeWins)} note="передано полиции" tone="blue" />
+              <StatCard icon={Star} label="Репутация" value={`${state.reputation}/100`} note={state.reputation >= 70 ? "вам доверяет город" : "ещё есть куда расти"} tone="purple" />
+            </div>
+            <article className="daily-card">
+              <div>
+                <span className="icon-box"><Zap size={24} /></span>
+                <div><span>Текущая смена</span><h3>День {state.day}</h3><p>Обслужите ещё {CASES_PER_DAY - state.servedToday} клиентов, чтобы закрыть день.</p></div>
+              </div>
+              <div className="daily-progress"><i style={{ width: `${dayProgress}%` }} /></div>
+              <strong>{state.servedToday}/{CASES_PER_DAY}</strong>
+            </article>
+            <article className="rules-card">
+              <div className="rules-head"><Sparkles size={20} /><h3>Как растёт бизнес</h3></div>
+              <div className="rules-grid">
+                <p><span>01</span><strong>Проверяйте</strong><small>Подделка почти ничего не стоит при продаже.</small></p>
+                <p><span>02</span><strong>Торгуйтесь</strong><small>Чем ниже закупка, тем выше ваша маржа.</small></p>
+                <p><span>03</span><strong>Ремонтируйте</strong><small>Сравнивайте прирост цены со стоимостью работ.</small></p>
+                <p><span>04</span><strong>Не рискуйте</strong><small>Краденые вещи бьют по кассе и репутации.</small></p>
+              </div>
+            </article>
+          </section>
+        )}
       </section>
 
-      {offlineReward > 0 && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Офлайн-доход">
-          <div className="reward-modal">
-            <div className="reward-icon">🧪</div>
-            <span className="panel-kicker">ЛАБОРАТОРИЯ РАБОТАЛА</span>
-            <h2>С возвращением!</h2>
-            <p>Мемозвери добывали ресурсы, пока тебя не было.</p>
-            <strong>+{formatNumber(offlineReward)} 🪙</strong>
-            <button className="primary-action" onClick={() => setOfflineReward(0)}>
-              ЗАБРАТЬ
-            </button>
-          </div>
-        </div>
-      )}
+      <nav className="mobile-nav" aria-label="Разделы игры">
+        <NavButton view="counter" current={view} onClick={setView} icon={HandCoins} label="Приёмка" />
+        <NavButton view="stock" current={view} onClick={setView} icon={ShoppingBag} label="Витрина" badge={state.inventory.length} />
+        <NavButton view="workshop" current={view} onClick={setView} icon={Wrench} label="Ремонт" />
+        <NavButton view="ledger" current={view} onClick={setView} icon={BookOpenText} label="Отчёт" />
+      </nav>
+
+      {toast && <div className={`toast ${toast.tone}`}><span>{toast.tone === "good" ? <Check size={19} /> : toast.tone === "bad" ? <ShieldAlert size={19} /> : <Coins size={19} />}</span>{toast.text}</div>}
     </main>
+  );
+}
+
+function NavButton({
+  view,
+  current,
+  onClick,
+  icon: Icon,
+  label,
+  badge,
+}: {
+  view: View;
+  current: View;
+  onClick: (view: View) => void;
+  icon: typeof Store;
+  label: string;
+  badge?: number;
+}) {
+  return (
+    <button className={current === view ? "active" : ""} onClick={() => onClick(view)}>
+      <span><Icon size={22} />{Boolean(badge) && <i>{badge}</i>}</span>
+      <small>{label}</small>
+    </button>
+  );
+}
+
+function EmptyState({
+  icon: Icon,
+  title,
+  text,
+  action,
+  actionText,
+}: {
+  icon: typeof Store;
+  title: string;
+  text: string;
+  action: () => void;
+  actionText: string;
+}) {
+  return (
+    <div className="empty-state">
+      <span><Icon size={34} /></span>
+      <h3>{title}</h3>
+      <p>{text}</p>
+      <button onClick={action}>{actionText}<ChevronRight size={18} /></button>
+    </div>
+  );
+}
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  note,
+  tone,
+}: {
+  icon: typeof Store;
+  label: string;
+  value: string;
+  note: string;
+  tone: string;
+}) {
+  return (
+    <article className={`stat-card ${tone}`}>
+      <span><Icon size={22} /></span>
+      <p>{label}</p>
+      <strong>{value}</strong>
+      <small>{note}</small>
+    </article>
   );
 }

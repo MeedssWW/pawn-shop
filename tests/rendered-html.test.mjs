@@ -10,10 +10,10 @@ async function render() {
   const { default: worker } = await import(workerUrl.href);
 
   return worker.fetch(
-    new Request("https://memobeasts.test/", {
+    new Request("https://pawn-shop.test/", {
       headers: {
         accept: "text/html",
-        host: "memobeasts.test",
+        host: "pawn-shop.test",
         "x-forwarded-proto": "https",
       },
     }),
@@ -29,34 +29,31 @@ async function render() {
   );
 }
 
-test("server-renders the complete game shell and social metadata", async () => {
+test("server-renders the pawn shop game and social metadata", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /Создай Брейнрота: Лаборатория Мутаций/);
-  assert.match(html, /Лаборатория мутаций/);
-  assert.match(html, /ИСПЫТАТЕЛЬНАЯ КАМЕРА/);
-  assert.match(html, /Gattino Spaghettino/);
-  assert.match(html, /https:\/\/memobeasts\.test\/og\.png/);
-  assert.doesNotMatch(html, /codex-preview|Your site is taking shape/);
+  assert.match(html, /Pawn Shop — симулятор ломбарда/);
+  assert.match(html, /ЛОМБАРД «ЗОЛОТОЙ УГОЛ»/);
+  assert.match(html, /Приёмка/);
+  assert.match(html, /Беззеркальная камера/);
+  assert.match(html, /https:\/\/pawn-shop\.test\/og\.png/);
+  assert.doesNotMatch(html, /codex-preview|Your site is taking shape|Брейнрот/);
 });
 
-test("ships the core progression, monetization hooks and final artwork", async () => {
-  const [page, packageJson] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../package.json", import.meta.url), "utf8"),
-  ]);
+test("ships the complete appraisal loop and original artwork", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 
-  assert.match(page, /const creatures: Creature\[\] = \[/);
-  assert.match(page, /mergeCreatures/);
-  assert.match(page, /startBattle/);
-  assert.match(page, /showRewardedVideo/);
-  assert.match(page, /LoadingAPI\?\.ready/);
-  assert.match(page, /GameplayAPI\?\.start/);
-  assert.match(page, /yandexPlayer\?\.setData/);
-  assert.doesNotMatch(packageJson, /react-loading-skeleton/);
+  assert.match(page, /const SCENARIOS: Scenario\[\] = \[/);
+  assert.match(page, /runCheck/);
+  assert.match(page, /callPolice/);
+  assert.match(page, /repair/);
+  assert.match(page, /sell/);
+  assert.match(page, /window\.localStorage/);
   await access(new URL("../public/og.png", import.meta.url));
+  await access(new URL("../public/customers/max.webp", import.meta.url));
+  await access(new URL("../public/items/camera.webp", import.meta.url));
   await assert.rejects(access(new URL("../app/_sites-preview/SkeletonPreview.tsx", root)));
 });

@@ -18,9 +18,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const host = requestHeaders.get("host") ?? "localhost:3000";
   const protocol = requestHeaders.get("x-forwarded-proto") ?? "https";
   const origin = `${protocol}://${host}`;
-  const title = "Создай Брейнрота: Лаборатория Мутаций";
+  const title = "Pawn Shop — симулятор ломбарда";
   const description =
-    "Создавай оригинальных мемозверей, объединяй их, собирай команду и отбивай волны нестабильных мутаций.";
+    "Принимайте вещи, находите подделки и краденое, торгуйтесь, ремонтируйте товары и развивайте собственный ломбард.";
 
   return {
     title,
@@ -32,7 +32,7 @@ export async function generateMetadata(): Promise<Metadata> {
     openGraph: {
       title,
       description,
-      images: [{ url: `${origin}/og.png`, width: 1672, height: 941 }],
+      images: [{ url: `${origin}/og.png`, width: 1200, height: 630 }],
       type: "website",
     },
     twitter: {
@@ -51,9 +51,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        {children}
-      </body>
+      <body className={`${geistSans.variable} ${geistMono.variable}`}>{children}</body>
     </html>
   );
 }
