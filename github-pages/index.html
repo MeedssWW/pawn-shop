@@ -2,14 +2,114 @@
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0b0e0f" />
-    <meta name="description" content="Симулятор ломбарда: проверяйте вещи, торгуйтесь, ремонтируйте и продавайте." />
-    <link rel="icon" href="./favicon.svg" />
-    <title>Pawn Shop — симулятор ломбарда</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+    <meta name="theme-color" content="#101427" />
+    <meta name="description" content="Pickaxe Drop — запускай кирку, пробивай шахту, находи кузницы и устраивай цепные взрывы." />
+    <meta property="og:title" content="Pickaxe Drop — Падение кирки" />
+    <meta property="og:description" content="Автоматический забег в процедурную шахту с рудой, кузницами и цепными взрывами." />
+    <meta property="og:image" content="/pickaxe-drop-og.png" />
+    <meta property="og:type" content="website" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>Pickaxe Drop — Падение кирки</title>
+    <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/main.tsx"></script>
+    <main id="app">
+      <div id="game-shell">
+        <canvas id="game-canvas" aria-label="Игровая шахта"></canvas>
+
+        <section id="game-hud" class="hidden">
+          <div class="hud-pickaxe">
+            <span id="hud-pickaxe-icon">⛏</span>
+            <div><small id="hud-pickaxe-tier">ДЕРЕВЯННАЯ</small><div class="hp-track"><i id="hp-fill"></i></div><b id="hp-text">50 / 50 HP</b></div>
+          </div>
+          <div class="hud-values">
+            <span><small>МОНЕТЫ</small><b id="run-coins">0</b></span>
+            <span><small>ГЛУБИНА</small><b id="depth-value">0 м</b></span>
+          </div>
+        </section>
+
+        <section id="game-controls" class="hidden">
+          <button id="speed-btn" aria-label="Скорость">×1</button>
+          <button id="pause-btn" aria-label="Пауза">Ⅱ</button>
+          <button id="sound-btn" aria-label="Звук">♪</button>
+        </section>
+
+        <section id="menu-screen" class="screen active">
+          <div class="menu-top">
+            <div class="brand-mark"><i></i><b>⛏</b></div>
+            <div class="balance-chip"><small>БАЛАНС</small><strong id="menu-coins">0</strong><span>◆</span></div>
+          </div>
+          <div class="hero-copy">
+            <small>АВТОМАТИЧЕСКАЯ ШАХТА</small>
+            <h1>PICKAXE<br><em>DROP</em></h1>
+            <p>Один запуск. Случайная шахта.<br>Насколько глубоко упадёт твоя кирка?</p>
+            <div class="best-chip"><span>ЛУЧШАЯ ГЛУБИНА</span><strong id="menu-best">0 м</strong></div>
+          </div>
+          <div class="menu-actions">
+            <button id="start-btn" class="primary-button"><span>ЗАПУСТИТЬ КИРКУ</span><b>⛏</b></button>
+            <div>
+              <button data-open="upgrades"><span>⬆</span><small>УЛУЧШЕНИЯ</small></button>
+              <button data-open="missions"><span>✓</span><small>ЗАДАНИЯ</small><i id="mission-badge" class="hidden">!</i></button>
+              <button data-open="settings"><span>⚙</span><small>НАСТРОЙКИ</small></button>
+            </div>
+          </div>
+        </section>
+
+        <section id="result-screen" class="screen result-screen">
+          <div class="result-card">
+            <small>ЗАПУСК ЗАВЕРШЁН</small>
+            <h2 id="result-title">Кирка сломалась</h2>
+            <div class="result-depth"><span>ГЛУБИНА</span><strong id="result-depth">0 м</strong><i id="record-label" class="hidden">НОВЫЙ РЕКОРД!</i></div>
+            <div class="result-grid">
+              <span><small>БЛОКИ</small><strong id="result-blocks">0</strong></span>
+              <span><small>РУДА</small><strong id="result-ores">0</strong></span>
+              <span><small>КУЗНИЦЫ</small><strong id="result-forges">0</strong></span>
+              <span><small>ДИНАМИТ</small><strong id="result-dynamites">0</strong></span>
+            </div>
+            <div class="result-tier"><small>МАКС. КИРКА</small><strong id="result-tier">Деревянная</strong></div>
+            <div class="reward-total"><span>ЗАРАБОТАНО</span><strong><b id="result-coins">0</b> ◆</strong></div>
+            <button id="double-btn" class="reward-button"><span>▶</span> ×2 НАГРАДУ <small>тест рекламы</small></button>
+            <div class="result-actions">
+              <button id="again-btn" class="primary-button">ЕЩЁ РАЗ</button>
+              <button data-open="upgrades">УЛУЧШЕНИЯ</button>
+              <button id="result-menu-btn">МЕНЮ</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="revive-screen" class="screen compact-screen">
+          <div class="compact-card">
+            <span class="revive-icon">✦</span>
+            <small>ПОСЛЕДНИЙ ШАНС</small>
+            <h2>Кирка раскололась</h2>
+            <p>Восстановить 20% прочности и продолжить падение?</p>
+            <button id="revive-btn" class="reward-button"><span>▶</span> ПРОДОЛЖИТЬ</button>
+            <button id="end-run-btn" class="text-button">Завершить запуск</button>
+          </div>
+        </section>
+
+        <section id="pause-screen" class="screen compact-screen">
+          <div class="compact-card">
+            <small>ИГРА НА ПАУЗЕ</small><h2>Передышка</h2>
+            <button id="resume-btn" class="primary-button">ПРОДОЛЖИТЬ</button>
+            <button id="pause-menu-btn" class="text-button">Завершить запуск</button>
+          </div>
+        </section>
+
+        <section id="modal-screen" class="screen modal-screen">
+          <div class="modal-card">
+            <header><button id="modal-back" aria-label="Назад">‹</button><div><small id="modal-kicker">МАСТЕРСКАЯ</small><h2 id="modal-title">Улучшения</h2></div><span class="modal-balance"><b id="modal-coins">0</b> ◆</span></header>
+            <div id="modal-content"></div>
+          </div>
+        </section>
+
+        <div id="upgrade-flash" class="upgrade-flash hidden"><small>УЛУЧШЕНИЕ!</small><strong id="upgrade-text">Деревянная → Каменная</strong></div>
+        <div id="biome-label" class="biome-label hidden"><small>НОВАЯ ЗОНА</small><strong>Каменные глубины</strong></div>
+        <div id="toast" class="toast hidden"></div>
+      </div>
+    </main>
+    <script type="module" src="/main.js"></script>
   </body>
 </html>
