@@ -3,44 +3,42 @@
 import {
   BadgeDollarSign,
   Banknote,
+  BellRing,
   BookOpenText,
   Check,
-  ChevronRight,
+  ChevronLeft,
   CircleDollarSign,
   Clock3,
   Coins,
   Fingerprint,
-  Hammer,
   HandCoins,
+  Hammer,
   History,
+  MessageCircleQuestion,
   PackageOpen,
   ScanLine,
-  Search,
   ShieldAlert,
   ShieldCheck,
-  ShoppingBag,
-  Sparkles,
   Star,
   Store,
   Tag,
   TrendingUp,
   UserRound,
-  UsersRound,
   Wrench,
   X,
-  Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-type View = "counter" | "stock" | "workshop" | "ledger";
+type View = "shop" | "stock" | "workshop" | "ledger";
 type CheckType = "auth" | "serial" | "value";
+type QuestionType = "origin" | "documents" | "urgency";
 type ToastTone = "good" | "bad" | "neutral";
 
 type Customer = {
   id: string;
   name: string;
   role: string;
-  image: string;
+  character: string;
   patience: number;
 };
 
@@ -86,11 +84,11 @@ type SaveState = {
 };
 
 const CUSTOMERS: Customer[] = [
-  { id: "max", name: "Макс", role: "спешит и нервничает", image: "customers/max.webp", patience: 62 },
-  { id: "sofia", name: "София", role: "знает цену красивым вещам", image: "customers/sofia.webp", patience: 74 },
-  { id: "viktor", name: "Виктор Львович", role: "коллекционер старой школы", image: "customers/viktor.webp", patience: 86 },
-  { id: "roman", name: "Роман", role: "не любит лишних вопросов", image: "customers/roman.webp", patience: 48 },
-  { id: "dima", name: "Дима", role: "студент и техноэнтузиаст", image: "customers/dima.webp", patience: 78 },
+  { id: "max", name: "Макс", role: "нервный продавец", character: "characters/max.png", patience: 62 },
+  { id: "sofia", name: "София", role: "уверенная покупательница", character: "characters/sofia.png", patience: 74 },
+  { id: "viktor", name: "Виктор Львович", role: "старый коллекционер", character: "characters/viktor.png", patience: 86 },
+  { id: "roman", name: "Роман", role: "не любит вопросы", character: "characters/roman.png", patience: 48 },
+  { id: "dima", name: "Дима", role: "студент", character: "characters/dima.png", patience: 78 },
 ];
 
 const ITEMS: Item[] = [
@@ -135,27 +133,30 @@ const INITIAL_STATE: SaveState = {
   policeWins: 0,
 };
 
-const SAVE_KEY = "pawn-shop-save-v1";
+const SAVE_KEY = "pawn-shop-save-v2";
 const CASES_PER_DAY = 6;
-
 const money = (value: number) => `$${Math.max(0, Math.round(value)).toLocaleString("en-US")}`;
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 export default function PawnShopGame() {
-  const [view, setView] = useState<View>("counter");
+  const [view, setView] = useState<View>("shop");
   const [state, setState] = useState<SaveState>(INITIAL_STATE);
   const [offer, setOffer] = useState(450);
   const [checks, setChecks] = useState<CheckType[]>([]);
-  const [counterOffer, setCounterOffer] = useState<number | null>(null);
+  const [questions, setQuestions] = useState<QuestionType[]>([]);
+  const [sellerMessage, setSellerMessage] = useState("");
+  const [negotiationRound, setNegotiationRound] = useState(0);
+  const [patience, setPatience] = useState(60);
+  const [inspecting, setInspecting] = useState<CheckType | null>(null);
   const [toast, setToast] = useState<{ text: string; tone: ToastTone } | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   const scenario = SCENARIOS[state.caseIndex % SCENARIOS.length];
   const customer = CUSTOMERS.find((entry) => entry.id === scenario.customer) ?? CUSTOMERS[0];
   const item = ITEMS.find((entry) => entry.id === scenario.item) ?? ITEMS[0];
-  const floorOffer = Math.max(25, Math.round(scenario.ask * 0.45 / 10) * 10);
-  const ceilingOffer = Math.round(scenario.ask * 1.1 / 10) * 10;
-  const dayProgress = (state.servedToday / CASES_PER_DAY) * 100;
+  const floorOffer = Math.max(25, Math.round(scenario.ask * 0.42 / 10) * 10);
+  const ceilingOffer = Math.round(scenario.ask * 1.08 / 10) * 10;
+  const dayProgress = state.servedToday / CASES_PER_DAY;
 
   const ownedWithData = useMemo(
     () =>
@@ -166,16 +167,6 @@ export default function PawnShopGame() {
     [state.inventory],
   );
 
-  const stockValue = useMemo(
-    () =>
-      ownedWithData.reduce((sum, owned) => {
-        const authenticity = owned.authentic ? 1 : 0.08;
-        const condition = owned.repaired ? 1.04 : 0.58 + owned.condition / 250;
-        return sum + owned.item.market * authenticity * condition;
-      }, 0),
-    [ownedWithData],
-  );
-
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(SAVE_KEY);
@@ -184,25 +175,28 @@ export default function PawnShopGame() {
         setState({ ...INITIAL_STATE, ...parsed, inventory: Array.isArray(parsed.inventory) ? parsed.inventory : [] });
       }
     } catch {
-      // A damaged save should never block the game.
+      // A broken save never blocks a shift.
     }
     setLoaded(true);
   }, []);
 
   useEffect(() => {
-    if (!loaded) return;
-    window.localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    if (loaded) window.localStorage.setItem(SAVE_KEY, JSON.stringify(state));
   }, [loaded, state]);
 
   useEffect(() => {
     setOffer(Math.round(scenario.ask * 0.72 / 10) * 10);
     setChecks([]);
-    setCounterOffer(null);
-  }, [state.caseIndex, scenario.ask]);
+    setQuestions([]);
+    setNegotiationRound(0);
+    setPatience(customer.patience);
+    setSellerMessage(scenario.story);
+    setInspecting(null);
+  }, [state.caseIndex, scenario.ask, scenario.story, customer.patience]);
 
   useEffect(() => {
     if (!toast) return;
-    const timeout = window.setTimeout(() => setToast(null), 2800);
+    const timeout = window.setTimeout(() => setToast(null), 2600);
     return () => window.clearTimeout(timeout);
   }, [toast]);
 
@@ -210,35 +204,91 @@ export default function PawnShopGame() {
     setToast({ text, tone });
   }, []);
 
-  const finishCase = useCallback(
-    (patch: Partial<SaveState> = {}) => {
-      setState((current) => {
-        const nextServed = current.servedToday + 1;
-        const closesDay = nextServed >= CASES_PER_DAY;
-        const rent = closesDay ? 180 : 0;
-        return {
-          ...current,
-          ...patch,
-          cash: (patch.cash ?? current.cash) - rent,
-          day: current.day + (closesDay ? 1 : 0),
-          servedToday: closesDay ? 0 : nextServed,
-          caseIndex: current.caseIndex + 1,
-        };
+  const playBell = () => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const audio = new AudioContextClass();
+      [0, 0.09].forEach((delay, index) => {
+        const oscillator = audio.createOscillator();
+        const gain = audio.createGain();
+        oscillator.type = "sine";
+        oscillator.frequency.value = index ? 940 : 760;
+        gain.gain.setValueAtTime(0.0001, audio.currentTime + delay);
+        gain.gain.exponentialRampToValueAtTime(0.12, audio.currentTime + delay + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + delay + 0.17);
+        oscillator.connect(gain).connect(audio.destination);
+        oscillator.start(audio.currentTime + delay);
+        oscillator.stop(audio.currentTime + delay + 0.19);
       });
-    },
-    [],
-  );
+      window.setTimeout(() => void audio.close(), 500);
+    } catch {
+      // Sound is cosmetic.
+    }
+  };
+
+  const finishCase = useCallback((patch: Partial<SaveState> = {}) => {
+    setState((current) => {
+      const served = current.servedToday + 1;
+      const closesDay = served >= CASES_PER_DAY;
+      return {
+        ...current,
+        ...patch,
+        cash: (patch.cash ?? current.cash) - (closesDay ? 180 : 0),
+        day: current.day + (closesDay ? 1 : 0),
+        servedToday: closesDay ? 0 : served,
+        caseIndex: current.caseIndex + 1,
+      };
+    });
+    window.setTimeout(playBell, 180);
+  }, []);
+
+  const askQuestion = (type: QuestionType) => {
+    if (questions.includes(type)) return;
+    const nextPatience = clamp(patience - 4, 0, 100);
+    setPatience(nextPatience);
+    setQuestions((current) => [...current, type]);
+    if (type === "origin") {
+      setSellerMessage(
+        scenario.stolen
+          ? "Взял у знакомого пару дней назад. Его номер сейчас не отвечает."
+          : scenario.authentic
+            ? "Вещь моя. Пользовался ей давно, просто сейчас нужны деньги."
+            : "Это подарок. Где именно покупали — уже не помню.",
+      );
+    } else if (type === "documents") {
+      setSellerMessage(
+        scenario.stolen
+          ? "Коробки и чека нет. Давайте без лишней бюрократии."
+          : scenario.authentic
+            ? "Чека уже нет, но серийник и переписку о покупке могу показать."
+            : "Документов не сохранилось, зато вещь выглядит как новая.",
+      );
+    } else {
+      setSellerMessage(
+        scenario.stolen
+          ? "Мне нужно уйти в ближайшие пять минут. Берёте или нет?"
+          : scenario.ask > item.market * 0.75
+            ? "Спешки нет. За бесценок точно не отдам."
+            : "Деньги нужны сегодня, поэтому готов немного уступить.",
+      );
+    }
+  };
 
   const runCheck = (type: CheckType) => {
-    if (checks.includes(type)) return;
+    if (checks.includes(type) || inspecting) return;
     const costs: Record<CheckType, number> = { auth: 18, serial: 24, value: 12 };
     if (state.cash < costs[type]) {
-      notify("Не хватает денег на проверку", "bad");
+      notify("В кассе не хватает денег на проверку", "bad");
       return;
     }
     setState((current) => ({ ...current, cash: current.cash - costs[type] }));
-    setChecks((current) => [...current, type]);
-    notify(type === "auth" ? "Эксперт закончил осмотр" : type === "serial" ? "База серийных номеров ответила" : "Рынок проанализирован", "good");
+    setInspecting(type);
+    window.setTimeout(() => {
+      setChecks((current) => [...current, type]);
+      setInspecting(null);
+      notify(type === "auth" ? "Экспертиза завершена" : type === "serial" ? "База ответила" : "Рыночная цена рассчитана", "good");
+    }, 780);
   };
 
   const buyItem = () => {
@@ -246,16 +296,21 @@ export default function PawnShopGame() {
       notify("В кассе недостаточно денег", "bad");
       return;
     }
-    if (offer < scenario.min && counterOffer === null) {
-      const nextCounter = Math.round((scenario.min + offer * 0.18) / 10) * 10;
-      setCounterOffer(nextCounter);
-      setOffer(nextCounter);
-      notify(`${customer.name}: меньше ${money(nextCounter)} не отдам`, "neutral");
-      return;
-    }
     if (offer < scenario.min) {
-      notify("Клиент забрал вещь и ушёл", "bad");
-      finishCase({ reputation: clamp(state.reputation - 1, 0, 100) });
+      const gap = (scenario.min - offer) / scenario.min;
+      const patienceLoss = Math.round(9 + gap * 24);
+      const nextPatience = patience - patienceLoss;
+      if (nextPatience <= 8 || negotiationRound >= 2) {
+        notify(`${customer.name} отказался и забрал вещь`, "bad");
+        finishCase({ reputation: clamp(state.reputation - 1, 0, 100) });
+        return;
+      }
+      const counter = Math.round((scenario.min + Math.max(0, offer - floorOffer) * 0.14) / 10) * 10;
+      setPatience(nextPatience);
+      setNegotiationRound((round) => round + 1);
+      setOffer(counter);
+      setSellerMessage(`Нет. Моя минимальная цена — ${money(counter)}. Ниже уже не опущусь.`);
+      notify(`Раунд торга ${negotiationRound + 1}/3`, "neutral");
       return;
     }
     const owned: OwnedItem = {
@@ -266,7 +321,7 @@ export default function PawnShopGame() {
       authentic: scenario.authentic,
       repaired: false,
     };
-    notify(`Сделка закрыта: ${item.name} за ${money(offer)}`, scenario.authentic && !scenario.stolen ? "good" : "neutral");
+    notify(`Куплено: ${item.name} за ${money(offer)}`, scenario.authentic && !scenario.stolen ? "good" : "neutral");
     finishCase({
       cash: state.cash - offer,
       inventory: [...state.inventory, owned],
@@ -276,14 +331,14 @@ export default function PawnShopGame() {
 
   const callPolice = () => {
     if (scenario.stolen) {
-      notify("Полиция подтвердила кражу. Репутация выросла!", "good");
+      notify("Кража подтверждена. Полиция выписала награду", "good");
       finishCase({
         cash: state.cash + 120,
         reputation: clamp(state.reputation + 7, 0, 100),
         policeWins: state.policeWins + 1,
       });
     } else {
-      notify("Ошибка: вещь чистая. Компенсация клиенту — $90", "bad");
+      notify("Вещь чистая. Клиент требует компенсацию $90", "bad");
       finishCase({
         cash: state.cash - 90,
         reputation: clamp(state.reputation - 6, 0, 100),
@@ -296,26 +351,24 @@ export default function PawnShopGame() {
     finishCase();
   };
 
-  const repair = (owned: OwnedItem, repairCost: number) => {
-    if (owned.repaired) return;
-    if (state.cash < repairCost) {
-      notify("Не хватает денег на ремонт", "bad");
+  const salePrice = (owned: OwnedItem, market: number) => {
+    if (!owned.authentic) return Math.round(market * 0.06);
+    return Math.round(market * (owned.repaired ? 1.05 : 0.58 + owned.condition / 240));
+  };
+
+  const repair = (owned: OwnedItem, cost: number) => {
+    if (owned.repaired || state.cash < cost) {
+      if (state.cash < cost) notify("Не хватает денег на ремонт", "bad");
       return;
     }
     setState((current) => ({
       ...current,
-      cash: current.cash - repairCost,
+      cash: current.cash - cost,
       inventory: current.inventory.map((entry) =>
         entry.uid === owned.uid ? { ...entry, repaired: true, condition: 100 } : entry,
       ),
     }));
-    notify("Предмет восстановлен и готов к витрине", "good");
-  };
-
-  const salePrice = (owned: OwnedItem, market: number) => {
-    if (!owned.authentic) return Math.round(market * 0.06);
-    const multiplier = owned.repaired ? 1.05 : 0.58 + owned.condition / 240;
-    return Math.round(market * multiplier);
+    notify("Мастер восстановил предмет", "good");
   };
 
   const sell = (owned: OwnedItem, market: number) => {
@@ -325,346 +378,236 @@ export default function PawnShopGame() {
       ...current,
       cash: current.cash + price,
       totalProfit: current.totalProfit + profit,
-      reputation: clamp(current.reputation + (profit > 0 ? 1 : -1), 0, 100),
+      reputation: clamp(current.reputation + (profit > 0 ? 1 : -2), 0, 100),
       inventory: current.inventory.filter((entry) => entry.uid !== owned.uid),
     }));
-    notify(profit >= 0 ? `Продано. Прибыль ${money(profit)}` : `Продано с убытком ${money(Math.abs(profit))}`, profit >= 0 ? "good" : "bad");
+    notify(profit >= 0 ? `Продано. Прибыль ${money(profit)}` : `Убыток ${money(Math.abs(profit))}`, profit >= 0 ? "good" : "bad");
   };
 
   const resetGame = () => {
-    if (!window.confirm("Начать новую игру? Текущий прогресс будет удалён.")) return;
+    if (!window.confirm("Начать новую игру и удалить текущий прогресс?")) return;
     setState(INITIAL_STATE);
-    setView("counter");
-    notify("Новая смена началась", "neutral");
+    setView("shop");
   };
 
-  const checkCards = [
-    {
-      type: "auth" as const,
-      icon: ScanLine,
-      label: "Экспертиза",
-      sub: "$18",
-      result: scenario.authentic ? "Материалы и маркировка подлинные" : "Найдены признаки подделки",
-    },
-    {
-      type: "serial" as const,
-      icon: Fingerprint,
-      label: "Серийный номер",
-      sub: "$24",
-      result: scenario.stolen ? "Совпадение с базой украденных вещей" : "Совпадений в базе нет",
-    },
-    {
-      type: "value" as const,
-      icon: TrendingUp,
-      label: "Оценка рынка",
-      sub: "$12",
-      result: `Цена продажи: ${money(item.market * 0.82)}–${money(item.market * 1.08)}`,
-    },
-  ];
+  const authResult = scenario.authentic ? "Подлинная вещь" : "Обнаружена подделка";
+  const serialResult = scenario.stolen ? "Есть в базе розыска" : "Серийник чистый";
+  const valueResult = `${money(item.market * 0.82)}–${money(item.market * 1.08)}`;
 
   return (
-    <main className="app-shell">
-      <aside className="side-rail">
-        <div className="brand-mark" aria-label="Pawn Shop">
-          <span><BadgeDollarSign size={27} /></span>
-          <strong>PAWN</strong>
-        </div>
-        <nav aria-label="Разделы игры">
-          <NavButton view="counter" current={view} onClick={setView} icon={HandCoins} label="Приёмка" />
-          <NavButton view="stock" current={view} onClick={setView} icon={ShoppingBag} label="Витрина" badge={state.inventory.length} />
-          <NavButton view="workshop" current={view} onClick={setView} icon={Wrench} label="Мастерская" />
-          <NavButton view="ledger" current={view} onClick={setView} icon={BookOpenText} label="Отчёт" />
-        </nav>
-        <div className="rail-footer">
-          <span>Репутация</span>
-          <strong><Star size={15} fill="currentColor" /> {state.reputation}</strong>
-        </div>
-      </aside>
+    <main className="pawn-world">
+      <section className="shop-scene">
+        <img className="scene-background" src="scenes/pawnshop.webp" alt="" />
 
-      <section className="game-shell">
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">ЛОМБАРД «ЗОЛОТОЙ УГОЛ»</p>
-            <h1>{view === "counter" ? "Приёмка" : view === "stock" ? "Витрина" : view === "workshop" ? "Мастерская" : "Книга учёта"}</h1>
+        <header className="scene-hud">
+          <button className="hud-brand" onClick={() => setView("shop")} aria-label="Вернуться в ломбард">
+            <BadgeDollarSign size={23} />
+            <span><strong>GOLDEN CORNER</strong><small>PAWN SHOP</small></span>
+          </button>
+          <div className="shift-progress">
+            <span>День {state.day}</span>
+            <div><i style={{ width: `${dayProgress * 100}%` }} /></div>
+            <small>{state.servedToday}/{CASES_PER_DAY}</small>
           </div>
-          <div className="top-resources">
-            <div className="resource-pill"><Banknote size={19} /><span>Касса</span><strong>{money(state.cash)}</strong></div>
-            <div className="resource-pill day-pill"><Clock3 size={18} /><span>День</span><strong>{state.day}</strong></div>
+          <div className="hud-stats">
+            <span><Banknote size={17} /><small>Касса</small><strong>{money(state.cash)}</strong></span>
+            <span><Star size={16} fill="currentColor" /><small>Репутация</small><strong>{state.reputation}</strong></span>
           </div>
+          <nav className="scene-nav" aria-label="Разделы ломбарда">
+            <button className={view === "stock" ? "active" : ""} onClick={() => setView("stock")}><PackageOpen size={19} /><i>{state.inventory.length}</i></button>
+            <button className={view === "workshop" ? "active" : ""} onClick={() => setView("workshop")}><Wrench size={19} /></button>
+            <button className={view === "ledger" ? "active" : ""} onClick={() => setView("ledger")}><BookOpenText size={19} /></button>
+          </nav>
         </header>
 
-        <div className="day-strip">
-          <span style={{ width: `${dayProgress}%` }} />
-          <p>{state.servedToday}/{CASES_PER_DAY} клиентов · в конце дня аренда $180</p>
+        <div className="customer-arrival" key={`arrival-${state.caseIndex}`}>
+          <div className="door-cover">
+            <span className="door-left"><i /></span>
+            <span className="door-right"><i /></span>
+          </div>
+          <div className="bell-flash"><BellRing size={22} /></div>
+          <img className="standing-customer" src={customer.character} alt={customer.name} />
         </div>
 
-        {view === "counter" && (
-          <section className="counter-screen">
-            <div className="customer-stage">
-              <div className="scene-glow" />
-              <div className="customer-copy">
-                <span className="queue-label"><UsersRound size={15} /> Клиент #{state.servedToday + 1}</span>
-                <h2>{customer.name}</h2>
-                <p>{customer.role}</p>
-              </div>
-              <img className="customer-portrait" src={customer.image} alt={customer.name} />
-              <div className="dialogue">
-                <UserRound size={20} />
-                <p>«{scenario.story}»</p>
-              </div>
-              <div className="patience">
-                <span>Терпение</span>
-                <div><i style={{ width: `${customer.patience}%` }} /></div>
-              </div>
+        <div className="customer-nameplate" key={`name-${state.caseIndex}`}>
+          <span>КЛИЕНТ #{state.servedToday + 1}</span>
+          <strong>{customer.name}</strong>
+          <small>{customer.role}</small>
+        </div>
+
+        <div className={`inspection-effect ${inspecting ? "active" : ""}`}>
+          <span />
+          <p>{inspecting === "auth" ? "Проверяем материалы…" : inspecting === "serial" ? "Ищем серийный номер…" : "Сравниваем рынок…"}</p>
+        </div>
+
+        <div className="desk-item" key={`item-${state.caseIndex}`}>
+          <span className="item-shadow" />
+          <img src={item.image} alt={item.name} />
+          <div className="item-label"><small>{item.category}</small><strong>{item.name}</strong><span>{scenario.condition}% состояние</span></div>
+        </div>
+
+        <section className="desk-interface">
+          <div className="seller-dialogue" key={`dialogue-${sellerMessage}`}>
+            <UserRound size={19} />
+            <p>«{sellerMessage}»</p>
+            <div className="patience-meter">
+              <span>Терпение</span>
+              <i><b style={{ width: `${patience}%` }} /></i>
+            </div>
+          </div>
+
+          <div className="interaction-board">
+            <div className="question-rack">
+              <div className="board-title"><MessageCircleQuestion size={16} /><span>Спросить</span></div>
+              <button className={questions.includes("origin") ? "done" : ""} onClick={() => askQuestion("origin")}><span>Откуда вещь?</span>{questions.includes("origin") && <Check size={15} />}</button>
+              <button className={questions.includes("documents") ? "done" : ""} onClick={() => askQuestion("documents")}><span>Есть документы?</span>{questions.includes("documents") && <Check size={15} />}</button>
+              <button className={questions.includes("urgency") ? "done" : ""} onClick={() => askQuestion("urgency")}><span>Почему продаёте?</span>{questions.includes("urgency") && <Check size={15} />}</button>
             </div>
 
-            <div className="deal-desk">
-              <article className="item-hero">
-                <div className="item-visual">
-                  <img src={item.image} alt={item.name} />
-                  <span className="condition-chip">{scenario.condition}% состояние</span>
-                </div>
-                <div className="item-title">
-                  <span>{item.category}</span>
-                  <h2>{item.name}</h2>
-                  <div className="ask-row">
-                    <p>Цена клиента</p>
-                    <strong>{money(scenario.ask)}</strong>
+            <div className="tool-rack">
+              <div className="board-title"><ScanLine size={16} /><span>Инструменты</span></div>
+              <ToolButton icon={ScanLine} label="Экспертиза" cost="$18" result={authResult} active={checks.includes("auth")} busy={inspecting === "auth"} onClick={() => runCheck("auth")} />
+              <ToolButton icon={Fingerprint} label="Серийник" cost="$24" result={serialResult} active={checks.includes("serial")} busy={inspecting === "serial"} onClick={() => runCheck("serial")} />
+              <ToolButton icon={TrendingUp} label="Оценка" cost="$12" result={valueResult} active={checks.includes("value")} busy={inspecting === "value"} onClick={() => runCheck("value")} />
+            </div>
+
+            <div className="negotiation-rack">
+              <div className="offer-summary">
+                <span>Клиент просит <strong>{money(scenario.ask)}</strong></span>
+                <span>Ваше предложение <b>{money(offer)}</b></span>
+              </div>
+              <input
+                aria-label="Сумма предложения"
+                type="range"
+                min={floorOffer}
+                max={ceilingOffer}
+                step={10}
+                value={offer}
+                onChange={(event) => setOffer(Number(event.target.value))}
+              />
+              <div className="offer-scale"><span>{money(floorOffer)}</span><span>Торг {negotiationRound}/3</span><span>{money(ceilingOffer)}</span></div>
+              <div className="counter-actions">
+                <button className="police-action" onClick={callPolice}><ShieldAlert size={18} /><span>Полиция</span></button>
+                <button className="refuse-action" onClick={refuse}><X size={18} /><span>Отказать</span></button>
+                <button className="deal-action" onClick={buyItem}><HandCoins size={19} /><span>Предложить {money(offer)}</span></button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {view !== "shop" && (
+          <div className="room-drawer">
+            <button className="drawer-back" onClick={() => setView("shop")}><ChevronLeft size={19} /> К клиенту</button>
+            {view === "stock" && (
+              <Drawer title="Витрина" subtitle="Продайте купленные вещи посетителям магазина." icon={Store}>
+                {ownedWithData.length === 0 ? (
+                  <EmptyDrawer icon={PackageOpen} text="Витрина пуста. Сначала договоритесь с клиентом у стойки." />
+                ) : (
+                  <div className="stock-shelf">
+                    {ownedWithData.map((owned) => {
+                      const price = salePrice(owned, owned.item.market);
+                      const profit = price - owned.buyPrice;
+                      return (
+                        <article key={owned.uid}>
+                          <img src={owned.item.image} alt={owned.item.name} />
+                          <div><small>{owned.item.category}</small><strong>{owned.item.name}</strong><span>Куплено за {money(owned.buyPrice)}</span></div>
+                          <button onClick={() => sell(owned, owned.item.market)}><Tag size={17} /> Продать {money(price)} <b className={profit >= 0 ? "positive" : "negative"}>{profit >= 0 ? "+" : "−"}{money(Math.abs(profit))}</b></button>
+                        </article>
+                      );
+                    })}
                   </div>
-                </div>
-              </article>
-
-              <section className="inspection-panel">
-                <div className="section-heading">
-                  <div><Search size={18} /><span>Проверка предмета</span></div>
-                  <small>Проверки платные, но снижают риск</small>
-                </div>
-                <div className="check-grid">
-                  {checkCards.map((check) => {
-                    const checked = checks.includes(check.type);
-                    const Icon = check.icon;
-                    return (
-                      <button className={`check-card ${checked ? "checked" : ""}`} key={check.type} onClick={() => runCheck(check.type)}>
-                        <span className="check-icon">{checked ? <Check size={18} /> : <Icon size={19} />}</span>
-                        <span><strong>{check.label}</strong><small>{checked ? check.result : check.sub}</small></span>
-                        {!checked && <ChevronRight size={17} />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-
-              <section className="offer-panel">
-                <div className="offer-head">
-                  <div>
-                    <span>Ваше предложение</span>
-                    <strong>{money(offer)}</strong>
+                )}
+              </Drawer>
+            )}
+            {view === "workshop" && (
+              <Drawer title="Мастерская" subtitle="Восстановление повышает цену настоящих вещей." icon={Hammer}>
+                {ownedWithData.length === 0 ? (
+                  <EmptyDrawer icon={Wrench} text="Мастеру пока нечего ремонтировать." />
+                ) : (
+                  <div className="stock-shelf repair-shelf">
+                    {ownedWithData.map((owned) => (
+                      <article key={owned.uid}>
+                        <img src={owned.item.image} alt={owned.item.name} />
+                        <div><small>Состояние {owned.condition}%</small><strong>{owned.item.name}</strong><span>{owned.repaired ? "Полностью восстановлено" : `Ремонт стоит ${money(owned.item.repairCost)}`}</span></div>
+                        <button disabled={owned.repaired} onClick={() => repair(owned, owned.item.repairCost)}>{owned.repaired ? <><Check size={17} /> Готово</> : <><Wrench size={17} /> Ремонт</>}</button>
+                      </article>
+                    ))}
                   </div>
-                  {counterOffer && <span className="counter-badge">Встречная цена</span>}
-                </div>
-                <input
-                  aria-label="Сумма предложения"
-                  type="range"
-                  min={floorOffer}
-                  max={ceilingOffer}
-                  step={10}
-                  value={offer}
-                  onChange={(event) => setOffer(Number(event.target.value))}
-                />
-                <div className="range-labels"><span>{money(floorOffer)}</span><span>{money(ceilingOffer)}</span></div>
-                <div className="deal-actions">
-                  <button className="secondary-action danger" onClick={callPolice}><ShieldAlert size={19} /><span>Полиция</span></button>
-                  <button className="secondary-action" onClick={refuse}><X size={19} /><span>Отказать</span></button>
-                  <button className="primary-action" onClick={buyItem}><HandCoins size={20} /><span>Предложить {money(offer)}</span></button>
-                </div>
-              </section>
-            </div>
-          </section>
-        )}
-
-        {view === "stock" && (
-          <section className="content-screen">
-            <div className="screen-intro">
-              <div><span className="icon-box"><Store size={24} /></span><div><h2>Витрина магазина</h2><p>Выставляйте купленные вещи и фиксируйте прибыль.</p></div></div>
-              <div className="summary-value"><span>Оценка запасов</span><strong>{money(stockValue)}</strong></div>
-            </div>
-            {ownedWithData.length === 0 ? (
-              <EmptyState icon={PackageOpen} title="Витрина пока пустая" text="Заключите первую сделку на приёмке — товар появится здесь." action={() => setView("counter")} actionText="Перейти к клиенту" />
-            ) : (
-              <div className="inventory-grid">
-                {ownedWithData.map((owned) => {
-                  const price = salePrice(owned, owned.item.market);
-                  const profit = price - owned.buyPrice;
-                  return (
-                    <article className="inventory-card" key={owned.uid}>
-                      <div className="inventory-image"><img src={owned.item.image} alt={owned.item.name} />{!owned.authentic && <span className="fake-label">ПОДДЕЛКА</span>}</div>
-                      <div className="inventory-body">
-                        <span>{owned.item.category}</span>
-                        <h3>{owned.item.name}</h3>
-                        <div className="item-numbers">
-                          <p><span>Закупка</span><strong>{money(owned.buyPrice)}</strong></p>
-                          <p><span>Продажа</span><strong>{money(price)}</strong></p>
-                        </div>
-                        <button className="sell-button" onClick={() => sell(owned, owned.item.market)}>
-                          <Tag size={18} /><span>Продать</span><strong className={profit >= 0 ? "profit" : "loss"}>{profit >= 0 ? "+" : "−"}{money(Math.abs(profit))}</strong>
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
+                )}
+              </Drawer>
             )}
-          </section>
-        )}
-
-        {view === "workshop" && (
-          <section className="content-screen">
-            <div className="screen-intro">
-              <div><span className="icon-box"><Hammer size={24} /></span><div><h2>Мастерская</h2><p>Ремонт повышает цену, но не спасает подделки.</p></div></div>
-              <div className="summary-value"><span>Мастер</span><strong>ур. 1</strong></div>
-            </div>
-            {ownedWithData.length === 0 ? (
-              <EmptyState icon={Wrench} title="Ремонтировать пока нечего" text="Купите предмет на приёмке, затем оцените выгоду ремонта." action={() => setView("counter")} actionText="Открыть приёмку" />
-            ) : (
-              <div className="repair-list">
-                {ownedWithData.map((owned) => {
-                  const before = salePrice(owned, owned.item.market);
-                  const after = owned.authentic ? Math.round(owned.item.market * 1.05) : Math.round(owned.item.market * 0.06);
-                  return (
-                    <article className="repair-row" key={owned.uid}>
-                      <img src={owned.item.image} alt={owned.item.name} />
-                      <div className="repair-info">
-                        <span>{owned.item.category}</span>
-                        <h3>{owned.item.name}</h3>
-                        <div className="condition-bar"><i style={{ width: `${owned.condition}%` }} /></div>
-                        <small>{owned.repaired ? "Полностью восстановлен" : `Состояние ${owned.condition}%`}</small>
-                      </div>
-                      <div className="repair-value">
-                        <span>После ремонта</span>
-                        <strong>{money(after)}</strong>
-                        <small>сейчас {money(before)}</small>
-                      </div>
-                      <button disabled={owned.repaired} onClick={() => repair(owned, owned.item.repairCost)}>
-                        {owned.repaired ? <><Check size={18} /> Готово</> : <><Wrench size={18} /> Ремонт {money(owned.item.repairCost)}</>}
-                      </button>
-                    </article>
-                  );
-                })}
-              </div>
+            {view === "ledger" && (
+              <Drawer title="Книга учёта" subtitle="Итоги работы ломбарда." icon={BookOpenText}>
+                <div className="ledger-grid">
+                  <Stat icon={Banknote} label="Касса" value={money(state.cash)} />
+                  <Stat icon={CircleDollarSign} label="Прибыль" value={money(state.totalProfit)} />
+                  <Stat icon={HandCoins} label="Сделки" value={String(state.deals)} />
+                  <Stat icon={ShieldCheck} label="Краденое" value={String(state.policeWins)} />
+                  <Stat icon={Star} label="Репутация" value={`${state.reputation}/100`} />
+                  <Stat icon={Clock3} label="День" value={String(state.day)} />
+                </div>
+                <div className="shift-note"><BellRing size={19} /><p>После каждых {CASES_PER_DAY} клиентов закрывается смена и списывается аренда $180.</p></div>
+                <button className="new-game" onClick={resetGame}><History size={17} /> Начать заново</button>
+              </Drawer>
             )}
-          </section>
-        )}
-
-        {view === "ledger" && (
-          <section className="content-screen ledger-screen">
-            <div className="screen-intro">
-              <div><span className="icon-box"><BookOpenText size={24} /></span><div><h2>Книга учёта</h2><p>Главные результаты вашего ломбарда.</p></div></div>
-              <button className="reset-button" onClick={resetGame}><History size={17} /> Новая игра</button>
-            </div>
-            <div className="stats-grid">
-              <StatCard icon={CircleDollarSign} label="Чистая прибыль" value={money(state.totalProfit)} note="с проданных товаров" tone="green" />
-              <StatCard icon={ShoppingBag} label="Успешных сделок" value={String(state.deals)} note={`${state.inventory.length} предметов в запасе`} tone="gold" />
-              <StatCard icon={ShieldCheck} label="Краденых найдено" value={String(state.policeWins)} note="передано полиции" tone="blue" />
-              <StatCard icon={Star} label="Репутация" value={`${state.reputation}/100`} note={state.reputation >= 70 ? "вам доверяет город" : "ещё есть куда расти"} tone="purple" />
-            </div>
-            <article className="daily-card">
-              <div>
-                <span className="icon-box"><Zap size={24} /></span>
-                <div><span>Текущая смена</span><h3>День {state.day}</h3><p>Обслужите ещё {CASES_PER_DAY - state.servedToday} клиентов, чтобы закрыть день.</p></div>
-              </div>
-              <div className="daily-progress"><i style={{ width: `${dayProgress}%` }} /></div>
-              <strong>{state.servedToday}/{CASES_PER_DAY}</strong>
-            </article>
-            <article className="rules-card">
-              <div className="rules-head"><Sparkles size={20} /><h3>Как растёт бизнес</h3></div>
-              <div className="rules-grid">
-                <p><span>01</span><strong>Проверяйте</strong><small>Подделка почти ничего не стоит при продаже.</small></p>
-                <p><span>02</span><strong>Торгуйтесь</strong><small>Чем ниже закупка, тем выше ваша маржа.</small></p>
-                <p><span>03</span><strong>Ремонтируйте</strong><small>Сравнивайте прирост цены со стоимостью работ.</small></p>
-                <p><span>04</span><strong>Не рискуйте</strong><small>Краденые вещи бьют по кассе и репутации.</small></p>
-              </div>
-            </article>
-          </section>
+          </div>
         )}
       </section>
 
-      <nav className="mobile-nav" aria-label="Разделы игры">
-        <NavButton view="counter" current={view} onClick={setView} icon={HandCoins} label="Приёмка" />
-        <NavButton view="stock" current={view} onClick={setView} icon={ShoppingBag} label="Витрина" badge={state.inventory.length} />
-        <NavButton view="workshop" current={view} onClick={setView} icon={Wrench} label="Ремонт" />
-        <NavButton view="ledger" current={view} onClick={setView} icon={BookOpenText} label="Отчёт" />
-      </nav>
-
-      {toast && <div className={`toast ${toast.tone}`}><span>{toast.tone === "good" ? <Check size={19} /> : toast.tone === "bad" ? <ShieldAlert size={19} /> : <Coins size={19} />}</span>{toast.text}</div>}
+      {toast && <div className={`toast ${toast.tone}`}><span>{toast.tone === "good" ? <Check size={18} /> : toast.tone === "bad" ? <ShieldAlert size={18} /> : <Coins size={18} />}</span>{toast.text}</div>}
     </main>
   );
 }
 
-function NavButton({
-  view,
-  current,
-  onClick,
+function ToolButton({
   icon: Icon,
   label,
-  badge,
+  cost,
+  result,
+  active,
+  busy,
+  onClick,
 }: {
-  view: View;
-  current: View;
-  onClick: (view: View) => void;
   icon: typeof Store;
   label: string;
-  badge?: number;
+  cost: string;
+  result: string;
+  active: boolean;
+  busy: boolean;
+  onClick: () => void;
 }) {
   return (
-    <button className={current === view ? "active" : ""} onClick={() => onClick(view)}>
-      <span><Icon size={22} />{Boolean(badge) && <i>{badge}</i>}</span>
-      <small>{label}</small>
+    <button className={`tool-button ${active ? "done" : ""} ${busy ? "busy" : ""}`} onClick={onClick}>
+      <Icon size={18} />
+      <span><strong>{active ? result : label}</strong><small>{active ? "проверено" : cost}</small></span>
+      {active && <Check size={15} />}
     </button>
   );
 }
 
-function EmptyState({
-  icon: Icon,
+function Drawer({
   title,
-  text,
-  action,
-  actionText,
+  subtitle,
+  icon: Icon,
+  children,
 }: {
-  icon: typeof Store;
   title: string;
-  text: string;
-  action: () => void;
-  actionText: string;
+  subtitle: string;
+  icon: typeof Store;
+  children: React.ReactNode;
 }) {
   return (
-    <div className="empty-state">
-      <span><Icon size={34} /></span>
-      <h3>{title}</h3>
-      <p>{text}</p>
-      <button onClick={action}>{actionText}<ChevronRight size={18} /></button>
-    </div>
+    <section className="drawer-panel">
+      <header><span><Icon size={25} /></span><div><h2>{title}</h2><p>{subtitle}</p></div></header>
+      {children}
+    </section>
   );
 }
 
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  note,
-  tone,
-}: {
-  icon: typeof Store;
-  label: string;
-  value: string;
-  note: string;
-  tone: string;
-}) {
-  return (
-    <article className={`stat-card ${tone}`}>
-      <span><Icon size={22} /></span>
-      <p>{label}</p>
-      <strong>{value}</strong>
-      <small>{note}</small>
-    </article>
-  );
+function EmptyDrawer({ icon: Icon, text }: { icon: typeof Store; text: string }) {
+  return <div className="empty-drawer"><span><Icon size={34} /></span><p>{text}</p></div>;
+}
+
+function Stat({ icon: Icon, label, value }: { icon: typeof Store; label: string; value: string }) {
+  return <article className="ledger-stat"><Icon size={20} /><span>{label}</span><strong>{value}</strong></article>;
 }

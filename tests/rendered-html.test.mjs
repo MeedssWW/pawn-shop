@@ -36,8 +36,8 @@ test("server-renders the pawn shop game and social metadata", async () => {
 
   const html = await response.text();
   assert.match(html, /Pawn Shop — симулятор ломбарда/);
-  assert.match(html, /ЛОМБАРД «ЗОЛОТОЙ УГОЛ»/);
-  assert.match(html, /Приёмка/);
+  assert.match(html, /GOLDEN CORNER/);
+  assert.match(html, /КЛИЕНТ/);
   assert.match(html, /Беззеркальная камера/);
   assert.match(html, /https:\/\/pawn-shop\.test\/og\.png/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|Брейнрот/);
@@ -53,6 +53,8 @@ test("ships the complete appraisal loop and original artwork", async () => {
   assert.match(page, /sell/);
   assert.match(page, /window\.localStorage/);
   await access(new URL("../public/og.png", import.meta.url));
+  await access(new URL("../public/scenes/pawnshop.webp", import.meta.url));
+  await access(new URL("../public/characters/max.png", import.meta.url));
   await access(new URL("../public/customers/max.webp", import.meta.url));
   await access(new URL("../public/items/camera.webp", import.meta.url));
   await assert.rejects(access(new URL("../app/_sites-preview/SkeletonPreview.tsx", root)));
