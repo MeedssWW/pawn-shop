@@ -54,7 +54,7 @@ test("ships the complete appraisal loop and original artwork", async () => {
   assert.match(page, /window\.localStorage/);
   await access(new URL("../public/og.png", import.meta.url));
   await access(new URL("../public/scenes/pawnshop.webp", import.meta.url));
-  await access(new URL("../public/characters/max.png", import.meta.url));
+  await access(new URL("../public/characters/max.webp", import.meta.url));
   await access(new URL("../public/customers/max.webp", import.meta.url));
   await access(new URL("../public/items/camera.webp", import.meta.url));
   await assert.rejects(access(new URL("../app/_sites-preview/SkeletonPreview.tsx", root)));

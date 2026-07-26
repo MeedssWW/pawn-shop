@@ -30,6 +30,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type View = "shop" | "stock" | "workshop" | "ledger";
+type MobilePanel = "talk" | "inspect" | "deal";
 type CheckType = "auth" | "serial" | "value";
 type QuestionType = "origin" | "documents" | "urgency";
 type ToastTone = "good" | "bad" | "neutral";
@@ -84,11 +85,11 @@ type SaveState = {
 };
 
 const CUSTOMERS: Customer[] = [
-  { id: "max", name: "Макс", role: "нервный продавец", character: "characters/max.png", patience: 62 },
-  { id: "sofia", name: "София", role: "уверенная покупательница", character: "characters/sofia.png", patience: 74 },
-  { id: "viktor", name: "Виктор Львович", role: "старый коллекционер", character: "characters/viktor.png", patience: 86 },
-  { id: "roman", name: "Роман", role: "не любит вопросы", character: "characters/roman.png", patience: 48 },
-  { id: "dima", name: "Дима", role: "студент", character: "characters/dima.png", patience: 78 },
+  { id: "max", name: "Макс", role: "нервный продавец", character: "characters/max.webp", patience: 62 },
+  { id: "sofia", name: "София", role: "уверенная покупательница", character: "characters/sofia.webp", patience: 74 },
+  { id: "viktor", name: "Виктор Львович", role: "старый коллекционер", character: "characters/viktor.webp", patience: 86 },
+  { id: "roman", name: "Роман", role: "не любит вопросы", character: "characters/roman.webp", patience: 48 },
+  { id: "dima", name: "Дима", role: "студент", character: "characters/dima.webp", patience: 78 },
 ];
 
 const ITEMS: Item[] = [
@@ -140,6 +141,7 @@ const clamp = (value: number, min: number, max: number) => Math.max(min, Math.mi
 
 export default function PawnShopGame() {
   const [view, setView] = useState<View>("shop");
+  const [mobilePanel, setMobilePanel] = useState<MobilePanel>("talk");
   const [state, setState] = useState<SaveState>(INITIAL_STATE);
   const [offer, setOffer] = useState(450);
   const [checks, setChecks] = useState<CheckType[]>([]);
@@ -192,6 +194,7 @@ export default function PawnShopGame() {
     setPatience(customer.patience);
     setSellerMessage(scenario.story);
     setInspecting(null);
+    setMobilePanel("talk");
   }, [state.caseIndex, scenario.ask, scenario.story, customer.patience]);
 
   useEffect(() => {
@@ -414,9 +417,9 @@ export default function PawnShopGame() {
             <span><Star size={16} fill="currentColor" /><small>Репутация</small><strong>{state.reputation}</strong></span>
           </div>
           <nav className="scene-nav" aria-label="Разделы ломбарда">
-            <button className={view === "stock" ? "active" : ""} onClick={() => setView("stock")}><PackageOpen size={19} /><i>{state.inventory.length}</i></button>
-            <button className={view === "workshop" ? "active" : ""} onClick={() => setView("workshop")}><Wrench size={19} /></button>
-            <button className={view === "ledger" ? "active" : ""} onClick={() => setView("ledger")}><BookOpenText size={19} /></button>
+            <button className={view === "stock" ? "active" : ""} onClick={() => setView("stock")}><PackageOpen size={19} /><small>Витрина</small><i>{state.inventory.length}</i></button>
+            <button className={view === "workshop" ? "active" : ""} onClick={() => setView("workshop")}><Wrench size={19} /><small>Ремонт</small></button>
+            <button className={view === "ledger" ? "active" : ""} onClick={() => setView("ledger")}><BookOpenText size={19} /><small>Отчёт</small></button>
           </nav>
         </header>
 
@@ -456,7 +459,12 @@ export default function PawnShopGame() {
             </div>
           </div>
 
-          <div className="interaction-board">
+          <div className="interaction-board" data-mobile-panel={mobilePanel}>
+            <div className="mobile-mode-tabs" role="tablist" aria-label="Действия с клиентом">
+              <button className={mobilePanel === "talk" ? "active" : ""} onClick={() => setMobilePanel("talk")}><MessageCircleQuestion size={16} /><span>Спросить</span></button>
+              <button className={mobilePanel === "inspect" ? "active" : ""} onClick={() => setMobilePanel("inspect")}><ScanLine size={16} /><span>Проверить</span><i>{checks.length}/3</i></button>
+              <button className={mobilePanel === "deal" ? "active" : ""} onClick={() => setMobilePanel("deal")}><HandCoins size={16} /><span>Сделка</span></button>
+            </div>
             <div className="question-rack">
               <div className="board-title"><MessageCircleQuestion size={16} /><span>Спросить</span></div>
               <button className={questions.includes("origin") ? "done" : ""} onClick={() => askQuestion("origin")}><span>Откуда вещь?</span>{questions.includes("origin") && <Check size={15} />}</button>
