@@ -429,7 +429,12 @@ export default function PawnShopGame() {
             <span className="door-right"><i /></span>
           </div>
           <div className="bell-flash"><BellRing size={22} /></div>
-          <img className="standing-customer" src={customer.character} alt={customer.name} />
+          <div
+            className="standing-customer"
+            role="img"
+            aria-label={customer.name}
+            style={{ backgroundImage: `url("${customer.character}")` }}
+          />
         </div>
 
         <div className="customer-nameplate" key={`name-${state.caseIndex}`}>
