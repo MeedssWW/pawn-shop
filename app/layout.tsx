@@ -18,9 +18,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const host = requestHeaders.get("host") ?? "localhost:3000";
   const protocol = requestHeaders.get("x-forwarded-proto") ?? "https";
   const origin = `${protocol}://${host}`;
-  const title = "Pawn Shop — симулятор ломбарда";
+  const title = "Ломбард после полуночи";
   const description =
-    "Принимайте вещи, находите подделки и краденое, торгуйтесь, ремонтируйте товары и развивайте собственный ломбард.";
+    "Переживите семь ночных смен: проверяйте посетителей и их вещи, вычисляйте Подмен и успейте нажать тревогу.";
 
   return {
     title,

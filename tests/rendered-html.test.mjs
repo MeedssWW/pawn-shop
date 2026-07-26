@@ -29,33 +29,35 @@ async function render() {
   );
 }
 
-test("server-renders the pawn shop game and social metadata", async () => {
+test("server-renders the midnight pawn shop and social metadata", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /Pawn Shop — симулятор ломбарда/);
+  assert.match(html, /Ломбард после полуночи/);
   assert.match(html, /GOLDEN CORNER/);
-  assert.match(html, /КЛИЕНТ/);
+  assert.match(html, /НОЧНАЯ СМЕНА/);
   assert.match(html, /Беззеркальная камера/);
   assert.match(html, /https:\/\/pawn-shop\.test\/og\.png/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|Брейнрот/);
 });
 
-test("ships the complete appraisal loop and original artwork", async () => {
+test("ships the complete visitor screening loop and original artwork", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 
-  assert.match(page, /const SCENARIOS: Scenario\[\] = \[/);
-  assert.match(page, /runCheck/);
-  assert.match(page, /callPolice/);
-  assert.match(page, /repair/);
-  assert.match(page, /sell/);
+  assert.match(page, /const VISITORS: Visitor\[\] = \[/);
+  assert.match(page, /triggerAlarm/);
+  assert.match(page, /useAction/);
+  assert.match(page, /repairItem/);
+  assert.match(page, /sellItem/);
+  assert.match(page, /CASES_PER_NIGHT/);
   assert.match(page, /window\.localStorage/);
   await access(new URL("../public/og.png", import.meta.url));
   await access(new URL("../public/scenes/pawnshop.webp", import.meta.url));
   await access(new URL("../public/characters/max.webp", import.meta.url));
   await access(new URL("../public/customers/max.webp", import.meta.url));
   await access(new URL("../public/items/camera.webp", import.meta.url));
+  await access(new URL("../public/anomaly-reveal.png", import.meta.url));
   await assert.rejects(access(new URL("../app/_sites-preview/SkeletonPreview.tsx", root)));
 });

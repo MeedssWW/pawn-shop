@@ -7,41 +7,38 @@ import {
   BookOpenText,
   Check,
   ChevronLeft,
-  CircleDollarSign,
+  CircleAlert,
   Clock3,
-  Coins,
+  Eye,
   Fingerprint,
   HandCoins,
-  Hammer,
+  HeartPulse,
   History,
+  LockKeyhole,
   MessageCircleQuestion,
   PackageOpen,
+  Radio,
   ScanLine,
   ShieldAlert,
   ShieldCheck,
+  Siren,
   Star,
   Store,
   Tag,
-  TrendingUp,
+  Thermometer,
   UserRound,
   Wrench,
   X,
+  Zap,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-type View = "shop" | "stock" | "workshop" | "story" | "ledger";
-type MobilePanel = "talk" | "inspect" | "deal";
-type CheckType = "auth" | "serial" | "value";
-type QuestionType = "origin" | "documents" | "urgency";
-type ToastTone = "good" | "bad" | "neutral";
-
-type Customer = {
-  id: string;
-  name: string;
-  role: string;
-  character: string;
-  patience: number;
-};
+type View = "shop" | "stock" | "archive" | "ledger";
+type Panel = "questions" | "checks" | "verdict";
+type QuestionKey = "origin" | "memory" | "item";
+type CheckKey = "pulse" | "document" | "object";
+type ActionKey = QuestionKey | CheckKey;
+type GameStatus = "playing" | "won" | "lost";
 
 type Item = {
   id: string;
@@ -52,15 +49,17 @@ type Item = {
   repairCost: number;
 };
 
-type Scenario = {
+type Visitor = {
   customer: string;
+  role: string;
+  character: string;
   item: string;
   ask: number;
   min: number;
   condition: number;
-  authentic: boolean;
-  stolen: boolean;
-  story: string;
+  human: boolean;
+  intro: string;
+  answers: Record<ActionKey, { text: string; suspicious: boolean }>;
 };
 
 type OwnedItem = {
@@ -68,31 +67,25 @@ type OwnedItem = {
   itemId: string;
   buyPrice: number;
   condition: number;
-  authentic: boolean;
   repaired: boolean;
+  contaminated: boolean;
 };
 
 type SaveState = {
   cash: number;
   reputation: number;
-  day: number;
-  servedToday: number;
+  night: number;
+  servedTonight: number;
   caseIndex: number;
-  inventory: OwnedItem[];
-  totalProfit: number;
+  intrudersTonight: number;
+  falseAlarmsTonight: number;
+  totalCaught: number;
+  totalMissed: number;
   deals: number;
-  policeWins: number;
-  repairs: number;
-  storyChapter: number;
+  profit: number;
+  inventory: OwnedItem[];
+  status: GameStatus;
 };
-
-const CUSTOMERS: Customer[] = [
-  { id: "max", name: "Макс", role: "нервный продавец", character: "characters/max.webp", patience: 62 },
-  { id: "sofia", name: "София", role: "уверенная покупательница", character: "characters/sofia.webp", patience: 74 },
-  { id: "viktor", name: "Виктор Львович", role: "старый коллекционер", character: "characters/viktor.webp", patience: 86 },
-  { id: "roman", name: "Роман", role: "не любит вопросы", character: "characters/roman.webp", patience: 48 },
-  { id: "dima", name: "Дима", role: "студент", character: "characters/dima.webp", patience: 78 },
-];
 
 const ITEMS: Item[] = [
   { id: "watch", name: "Золотые часы", category: "Часы", image: "items/watch.webp", market: 1240, repairCost: 115 },
@@ -109,130 +102,256 @@ const ITEMS: Item[] = [
   { id: "vinyl", name: "Редкая пластинка", category: "Коллекционное", image: "items/vinyl.webp", market: 470, repairCost: 35 },
 ];
 
-const SCENARIOS: Scenario[] = [
-  { customer: "max", item: "camera", ask: 610, min: 470, condition: 78, authentic: true, stolen: false, story: "Камера брата. Он уехал и разрешил продать. Деньги нужны сегодня." },
-  { customer: "sofia", item: "handbag", ask: 630, min: 450, condition: 91, authentic: false, stolen: false, story: "Подарок из бутика. Почти не носила — просто не мой цвет." },
-  { customer: "viktor", item: "watch", ask: 940, min: 760, condition: 67, authentic: true, stolen: false, story: "Часы из семейной коллекции. Механизм давно просит мастера." },
-  { customer: "roman", item: "phone", ask: 590, min: 460, condition: 84, authentic: true, stolen: true, story: "Телефон знакомого. Коробку и чек потом занесу, сейчас тороплюсь." },
-  { customer: "dima", item: "headphones", ask: 290, min: 210, condition: 73, authentic: true, stolen: false, story: "Перехожу на другую модель. Амбушюры уставшие, но звук чистый." },
-  { customer: "sofia", item: "ring", ask: 1350, min: 1050, condition: 96, authentic: true, stolen: false, story: "Помолвка отменилась. Не хочу больше видеть это кольцо." },
-  { customer: "max", item: "coin", ask: 440, min: 310, condition: 88, authentic: false, stolen: false, story: "Нашёл у дедушки в шкатулке. В интернете такие стоят состояние." },
-  { customer: "roman", item: "drill", ask: 230, min: 160, condition: 59, authentic: true, stolen: true, story: "Закрыл бригаду, распродаю инструмент. Документов на него не было." },
-  { customer: "viktor", item: "statuette", ask: 590, min: 430, condition: 82, authentic: true, stolen: false, story: "Покупал на блошином рынке двадцать лет назад. Хорошая бронза." },
-  { customer: "dima", item: "laptop", ask: 990, min: 810, condition: 64, authentic: true, stolen: false, story: "Нужны деньги на учёбу. Батарея слабая, остальное работает." },
-  { customer: "sofia", item: "vinyl", ask: 360, min: 240, condition: 93, authentic: true, stolen: false, story: "Досталась вместе с квартирой. Проигрывателя у меня всё равно нет." },
-  { customer: "roman", item: "guitar", ask: 720, min: 560, condition: 71, authentic: false, stolen: false, story: "Настоящий винтаж. Название мастерской стёрлось от времени." },
+const VISITORS: Visitor[] = [
+  {
+    customer: "Макс", role: "нервный курьер", character: "characters/max.webp", item: "camera", ask: 610, min: 470, condition: 78, human: true,
+    intro: "Камера брата. Он уехал утром, деньги нужны до полуночи.",
+    answers: {
+      origin: { text: "Брат прислал голосовое и код от шкафа. Могу включить запись.", suspicious: false },
+      memory: { text: "Мы снимали ею мой выпускной. Я тогда разбил объектив и месяц отрабатывал.", suspicious: false },
+      item: { text: "Слева царапина, батарея держит плохо. Больше сюрпризов нет.", suspicious: false },
+      pulse: { text: "112 ударов. Сильно нервничает, но ритм живой и неровный.", suspicious: true },
+      document: { text: "Фото и подпись совпадают. Адрес находится в этом районе.", suspicious: false },
+      object: { text: "На карте памяти семейные фотографии за последние четыре года.", suspicious: false },
+    },
+  },
+  {
+    customer: "София", role: "говорит слишком спокойно", character: "characters/sofia.webp", item: "ring", ask: 1280, min: 990, condition: 96, human: false,
+    intro: "Помолвка закончилась. Кольцо больше ничего для меня не значит.",
+    answers: {
+      origin: { text: "Его подарил человек. Имя сейчас несущественно.", suspicious: true },
+      memory: { text: "Это произошло летом. Или зимой. Погода для памяти не важна.", suspicious: true },
+      item: { text: "Сапфир синий. Кольцо круглое. Этого достаточно.", suspicious: true },
+      pulse: { text: "31 удар. Между импульсами одинаковые паузы до миллисекунды.", suspicious: true },
+      document: { text: "Документ проходит базу, но расстояние между глазами на фото другое.", suspicious: true },
+      object: { text: "Гравировка датирована завтрашним числом.", suspicious: true },
+    },
+  },
+  {
+    customer: "Виктор Львович", role: "старый коллекционер", character: "characters/viktor.webp", item: "watch", ask: 940, min: 760, condition: 67, human: true,
+    intro: "Часы моего отца. Неловко продавать, но ремонт квартиры важнее.",
+    answers: {
+      origin: { text: "Отец получил их за тридцать лет на заводе. На крышке его инициалы.", suspicious: false },
+      memory: { text: "В детстве я слушал их тиканье, когда он возвращался с ночной смены.", suspicious: false },
+      item: { text: "Спешат на семь минут в сутки. Борис когда-то уже менял пружину.", suspicious: false },
+      pulse: { text: "44 удара. Ритм медленный, но врачебный браслет подтверждает норму.", suspicious: true },
+      document: { text: "Паспорт просрочен месяц назад. Архивная фотография совпадает.", suspicious: true },
+      object: { text: "Под крышкой инициалы и след ремонта с клеймом Бориса.", suspicious: false },
+    },
+  },
+  {
+    customer: "Роман", role: "не смотрит в зеркало", character: "characters/roman.webp", item: "phone", ask: 590, min: 455, condition: 84, human: false,
+    intro: "Телефон знакомого. Он разрешил. Коробку потом принесу.",
+    answers: {
+      origin: { text: "Знакомого зовут... знакомый. Мы давно знакомы.", suspicious: true },
+      memory: { text: "Вчера мы ели суп. Люди часто едят суп вместе.", suspicious: true },
+      item: { text: "Он звонит, показывает изображения и знает расположение людей.", suspicious: true },
+      pulse: { text: "72 удара. Слишком ровный ритм не меняется даже после испуга.", suspicious: true },
+      document: { text: "Документ чистый и напечатан сегодня в 03:14.", suspicious: true },
+      object: { text: "Фронтальная камера показывает пустой стул перед стойкой.", suspicious: true },
+    },
+  },
+  {
+    customer: "Дима", role: "уставший студент", character: "characters/dima.webp", item: "headphones", ask: 290, min: 210, condition: 73, human: true,
+    intro: "Нужны деньги за общежитие. Наушники старые, но звучат честно.",
+    answers: {
+      origin: { text: "Купил на первом курсе у звукаря из клуба «Маяк».", suspicious: false },
+      memory: { text: "В них сводил первую песню. Бас ужасный, зато мама сохранила запись.", suspicious: false },
+      item: { text: "Правое ухо тише, амбушюры менял сам. Кабель родной.", suspicious: false },
+      pulse: { text: "88 ударов. Нормальная реакция на кофе и недосып.", suspicious: false },
+      document: { text: "Студенческий, пропуск и банковская карта принадлежат одному человеку.", suspicious: false },
+      object: { text: "Серийный номер и следы ремонта соответствуют рассказу.", suspicious: false },
+    },
+  },
+  {
+    customer: "София", role: "раздражённая покупательница", character: "characters/sofia.webp", item: "handbag", ask: 630, min: 450, condition: 91, human: true,
+    intro: "Подарок из бутика. Если это подделка — претензии не ко мне.",
+    answers: {
+      origin: { text: "Подарил бывший. После него я уже ничему дорогому не доверяю.", suspicious: false },
+      memory: { text: "Увидела сумку на заднем сиденье после нашего последнего ужина.", suspicious: false },
+      item: { text: "Носила дважды. Замок заедает, внутри пятно от помады.", suspicious: false },
+      pulse: { text: "79 ударов. Реагирует на вопросы раздражением и ускорением пульса.", suspicious: false },
+      document: { text: "Личность подтверждена. Чек магазина поддельный.", suspicious: true },
+      object: { text: "Сумка — качественная реплика, но на ней обычные человеческие следы.", suspicious: true },
+    },
+  },
+  {
+    customer: "Макс", role: "улыбается без причины", character: "characters/max.webp", item: "coin", ask: 440, min: 310, condition: 88, human: false,
+    intro: "Монета деда. Дед был старый. Теперь он больше не старый.",
+    answers: {
+      origin: { text: "Нашёл в коробке, где хранят прошлое. У людей много таких коробок.", suspicious: true },
+      memory: { text: "Дед рассказывал мне детство после того, как перестал дышать.", suspicious: true },
+      item: { text: "Металлический круг для обмена на бумажные прямоугольники.", suspicious: true },
+      pulse: { text: "Прибор не находит пульс. Клиент продолжает улыбаться.", suspicious: true },
+      document: { text: "Чернила подписи всё ещё влажные, хотя документу девять лет.", suspicious: true },
+      object: { text: "Монета охлаждается на два градуса каждый раз, когда клиент говорит.", suspicious: true },
+    },
+  },
+  {
+    customer: "Роман", role: "бывший строитель", character: "characters/roman.webp", item: "drill", ask: 230, min: 160, condition: 59, human: true,
+    intro: "Закрыл бригаду. Инструмент не мой, но я его честно забрал за долг.",
+    answers: {
+      origin: { text: "Со склада на Северной. Хозяин не заплатил за два месяца.", suspicious: true },
+      memory: { text: "Этой дрелью собирали сцену у городского театра. Я сорвал там спину.", suspicious: false },
+      item: { text: "Аккумулятор почти мёртвый. На корпусе номер фирмы.", suspicious: false },
+      pulse: { text: "96 ударов. Резко ускоряется при упоминании полиции.", suspicious: true },
+      document: { text: "Личность подтверждена. Разрешения на продажу инструмента нет.", suspicious: true },
+      object: { text: "Серийный номер числится украденным, но предмет физически обычный.", suspicious: true },
+    },
+  },
+  {
+    customer: "Виктор Львович", role: "не узнаёт старую фотографию", character: "characters/viktor.webp", item: "statuette", ask: 590, min: 430, condition: 82, human: false,
+    intro: "Бронза. Куплена давно. Старые вещи не задают вопросов.",
+    answers: {
+      origin: { text: "Блошиный рынок открылся в 1994 году в месте, которого теперь нет.", suspicious: true },
+      memory: { text: "Я был там с Борисом. Борис выглядел именно так, как сейчас.", suspicious: true },
+      item: { text: "Она изображает птицу. Птицы живут над землёй.", suspicious: true },
+      pulse: { text: "45 ударов. Ритм совпадает со звуком часов на стене.", suspicious: true },
+      document: { text: "Паспорт настоящий, но его владелец умер шесть дней назад.", suspicious: true },
+      object: { text: "У статуэтки две тени при одном источнике света.", suspicious: true },
+    },
+  },
+  {
+    customer: "Дима", role: "спешит на экзамен", character: "characters/dima.webp", item: "laptop", ask: 990, min: 805, condition: 64, human: true,
+    intro: "Ноутбук мой. Батарея умерла, зато проекты и документы на месте.",
+    answers: {
+      origin: { text: "Покупал с отцом. Половину суммы заработал разгрузкой аппаратуры.", suspicious: false },
+      memory: { text: "Первый файл — фото чека и дурацкое селфи из магазина.", suspicious: false },
+      item: { text: "Перегревается, клавиша R залипает. Пароль назову при покупке.", suspicious: false },
+      pulse: { text: "91 удар. Нормальный стресс перед экзаменом.", suspicious: false },
+      document: { text: "Чек, гарантия и аккаунт зарегистрированы на Диму.", suspicious: false },
+      object: { text: "Веб-камера и микрофон записывают клиента без искажений.", suspicious: false },
+    },
+  },
+  {
+    customer: "София", role: "говорит чужим голосом", character: "characters/sofia.webp", item: "vinyl", ask: 360, min: 240, condition: 93, human: false,
+    intro: "Пластинка досталась вместе с квартирой. Музыка внутри мешает спать.",
+    answers: {
+      origin: { text: "Квартира находилась на шестом этаже пятиэтажного дома.", suspicious: true },
+      memory: { text: "Предыдущий владелец всё ещё стоит в кухне, если не включать свет.", suspicious: true },
+      item: { text: "Запись лучше слушать от конца к началу. Тогда слова становятся тише.", suspicious: true },
+      pulse: { text: "83 удара, но звук доносится из сумки, а не из груди.", suspicious: true },
+      document: { text: "Документы чистые. Голос клиента не совпадает с голосом в архиве.", suspicious: true },
+      object: { text: "Пластинка вращается против мотора проигрывателя.", suspicious: true },
+    },
+  },
+  {
+    customer: "Макс", role: "неудачливый продавец", character: "characters/max.webp", item: "guitar", ask: 720, min: 550, condition: 71, human: true,
+    intro: "Думал, винтаж. Оказалась копия. Просто верните хоть часть денег.",
+    answers: {
+      origin: { text: "Купил по объявлению у вокзала. Продавец сразу удалил аккаунт.", suspicious: true },
+      memory: { text: "Хотел научиться ради девушки. Девушка ушла раньше, чем я выучил аккорд.", suspicious: false },
+      item: { text: "Лады звенят, дерево дешёвое. Я уже знаю, что меня обманули.", suspicious: false },
+      pulse: { text: "104 удара. Боится отказа, но физиология нормальная.", suspicious: true },
+      document: { text: "Документы клиента настоящие. Документов на гитару нет.", suspicious: true },
+      object: { text: "Современная фабричная копия, безопасная и вполне материальная.", suspicious: true },
+    },
+  },
+  {
+    customer: "София", role: "хозяйка ателье", character: "characters/sofia.webp", item: "vinyl", ask: 330, min: 235, condition: 86, human: true,
+    intro: "Нашла пластинку за старым шкафом в мастерской. Проверьте, вдруг редкая.",
+    answers: {
+      origin: { text: "Дом на улице Мира, бывшее фотоателье. Арендодатель разрешил забрать.", suspicious: false },
+      memory: { text: "Пыль была везде. Я чихнула и порвала новые шторы — прекрасный день.", suspicious: false },
+      item: { text: "Конверт сырой, дорожки целые. Проигрывателя нет.", suspicious: false },
+      pulse: { text: "76 ударов. Нормальная реакция на свет и вопросы.", suspicious: false },
+      document: { text: "Договор аренды и адрес мастерской подтверждаются.", suspicious: false },
+      object: { text: "Обычная редкая пластинка 1987 года. Никаких аномалий.", suspicious: false },
+    },
+  },
+  {
+    customer: "Дима", role: "слишком неподвижный студент", character: "characters/dima.webp", item: "laptop", ask: 920, min: 730, condition: 81, human: false,
+    intro: "Мне больше не нужен компьютер. Я уже загрузил всё необходимое.",
+    answers: {
+      origin: { text: "Получил его при рождении вместе с именем и формой лица.", suspicious: true },
+      memory: { text: "На нём сохранены воспоминания Димы. Они открываются без пароля.", suspicious: true },
+      item: { text: "Камера помогла изучить движения век и улыбки.", suspicious: true },
+      pulse: { text: "60 ударов. Пульс прекращается, когда на клиента не смотрят.", suspicious: true },
+      document: { text: "Все документы настоящие, но оригинальный Дима отмечен пропавшим.", suspicious: true },
+      object: { text: "Веб-камера показывает другого Диму, сидящего в тёмной комнате.", suspicious: true },
+    },
+  },
+  {
+    customer: "Макс", role: "пришёл второй раз за ночь", character: "characters/max.webp", item: "camera", ask: 540, min: 400, condition: 89, human: false,
+    intro: "Мы уже встречались. Вы купили эту камеру завтра утром.",
+    answers: {
+      origin: { text: "Она принадлежит вам. Я только возвращаю её в правильное время.", suspicious: true },
+      memory: { text: "Помню ваш ответ на вопрос, который вы ещё не задали.", suspicious: true },
+      item: { text: "Последний снимок сделан здесь через два часа после закрытия.", suspicious: true },
+      pulse: { text: "Пульс идёт назад: интервалы появляются на экране до удара.", suspicious: true },
+      document: { text: "В документе сегодняшняя дата выдачи, но клиент выглядит старше фотографии.", suspicious: true },
+      object: { text: "На последнем кадре вы стоите за клиентом, хотя снимок сделан сейчас.", suspicious: true },
+    },
+  },
 ];
 
-const CUSTOMER_LORE = [
-  { customer: "viktor", unlock: 0, title: "Друг старого хозяина", text: "Виктор Львович заходил сюда ещё в девяностых. Он знает, какие вещи дядя Борис никогда не выставлял на продажу." },
-  { customer: "dima", unlock: 4, title: "Музыкант без студии", text: "Дима учится на звукорежиссёра и продаёт технику, чтобы собрать деньги на собственную маленькую студию." },
-  { customer: "sofia", unlock: 8, title: "Новая жизнь", text: "София распродаёт вещи из прошлой жизни и мечтает открыть мастерскую по восстановлению винтажной одежды." },
-  { customer: "max", unlock: 12, title: "Семейные долги", text: "Макс торопится не из жадности: после отъезда брата он один выплачивает долги семьи и часто принимает плохие решения." },
+const NIGHT_DATA = [
+  { title: "Первая смена", rule: "Подмены плохо удерживают личные воспоминания.", radio: "После чёрного дождя введён ночной режим. Не открывайте двери незнакомцам после рассвета.", note: "Слушай не голос, а историю вещи. Чужое лицо выучить легче, чем чужую жизнь." },
+  { title: "Холодные руки", rule: "Проверка пульса полезна, но страх и возраст дают ложные признаки.", radio: "В северном квартале пропали три человека. Их документы всё ещё используются.", note: "Настоящий человек тоже может врать. Вор — не обязательно чудовище, а чудовище — не обязательно плохой продавец." },
+  { title: "Чистые документы", rule: "Подмены научились проходить базу. Сравнивайте документы с рассказом.", radio: "Отдел №7 просит сохранять спокойствие. Сообщения о двойниках официально не подтверждены.", note: "Если бумага говорит одно, вещь второе, а глаза третье — верь тому, что труднее подделать." },
+  { title: "Знакомые лица", rule: "Сегодня Подмена может выглядеть как уже знакомый клиент.", radio: "Не сообщайте по телефону имена близких. Некоторые звонки поступают из отключённых квартир.", note: "Я однажды выгнал Виктора Львовича по ошибке. Он до сих пор напоминает мне об этом каждую среду." },
+  { title: "Тихая база", rule: "Архив работает с перебоями. Не тратьте все действия на один тип проверки.", radio: "Из-за аварии городская сеть отключена до утра. Бумажные документы временно считаются основными.", note: "Техника помогает, пока не решит помочь кому-то другому. Держи голову холодной." },
+  { title: "Выгодные предложения", rule: "Опасные клиенты приносят лучшие вещи и почти не торгуются.", radio: "Жителей просят не принимать подарки и не поднимать предметы, оставленные у дверей.", note: "Самая дорогая вещь в магазине иногда обходится дороже своей цены." },
+  { title: "До рассвета", rule: "Последняя ночь. Подмены знают все прежние правила.", radio: "Эвакуационный поезд отправится в 06:10. После сигнала городские двери будут запечатаны.", note: "Если читаешь это — я не успел вернуться. Доживи до утра и сохрани нашу вывеску." },
 ];
 
 const INITIAL_STATE: SaveState = {
   cash: 2500,
-  reputation: 50,
-  day: 1,
-  servedToday: 0,
+  reputation: 60,
+  night: 1,
+  servedTonight: 0,
   caseIndex: 0,
-  inventory: [],
-  totalProfit: 0,
+  intrudersTonight: 0,
+  falseAlarmsTonight: 0,
+  totalCaught: 0,
+  totalMissed: 0,
   deals: 0,
-  policeWins: 0,
-  repairs: 0,
-  storyChapter: 0,
+  profit: 0,
+  inventory: [],
+  status: "playing",
 };
 
-const SAVE_KEY = "pawn-shop-save-v2";
-const CASES_PER_DAY = 6;
+const SAVE_KEY = "pawn-after-midnight-v1";
+const CASES_PER_NIGHT = 5;
+const MAX_ACTIONS = 3;
 const money = (value: number) => `$${Math.max(0, Math.round(value)).toLocaleString("en-US")}`;
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
-export default function PawnShopGame() {
-  const [view, setView] = useState<View>("shop");
-  const [mobilePanel, setMobilePanel] = useState<MobilePanel>("talk");
+export default function PawnAfterMidnight() {
   const [state, setState] = useState<SaveState>(INITIAL_STATE);
-  const [offer, setOffer] = useState(450);
-  const [checks, setChecks] = useState<CheckType[]>([]);
-  const [questions, setQuestions] = useState<QuestionType[]>([]);
-  const [sellerMessage, setSellerMessage] = useState("");
-  const [negotiationRound, setNegotiationRound] = useState(0);
-  const [patience, setPatience] = useState(60);
-  const [inspecting, setInspecting] = useState<CheckType | null>(null);
-  const [itemZoom, setItemZoom] = useState(false);
-  const [toast, setToast] = useState<{ text: string; tone: ToastTone } | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [view, setView] = useState<View>("shop");
+  const [panel, setPanel] = useState<Panel>("questions");
+  const [usedActions, setUsedActions] = useState<ActionKey[]>([]);
+  const [evidence, setEvidence] = useState<Array<{ key: ActionKey; text: string; suspicious: boolean }>>([]);
+  const [message, setMessage] = useState("");
+  const [offer, setOffer] = useState(450);
+  const [itemZoom, setItemZoom] = useState(false);
+  const [briefing, setBriefing] = useState(true);
+  const [nightReport, setNightReport] = useState(false);
+  const [alarmPhase, setAlarmPhase] = useState<null | "closing" | "result">(null);
+  const [alarmCorrect, setAlarmCorrect] = useState(false);
+  const [toast, setToast] = useState<{ text: string; tone: "good" | "bad" | "neutral" } | null>(null);
 
-  const scenario = SCENARIOS[state.caseIndex % SCENARIOS.length];
-  const customer = CUSTOMERS.find((entry) => entry.id === scenario.customer) ?? CUSTOMERS[0];
-  const item = ITEMS.find((entry) => entry.id === scenario.item) ?? ITEMS[0];
-  const floorOffer = Math.max(25, Math.round(scenario.ask * 0.42 / 10) * 10);
-  const ceilingOffer = Math.round(scenario.ask * 1.08 / 10) * 10;
-  const dayProgress = state.servedToday / CASES_PER_DAY;
-  const storyProfit = Math.max(0, state.totalProfit);
-  const storyChapters = [
-    {
-      title: "Первая неделя",
-      subtitle: "Спасти ломбард",
-      description: "Дядя Борис уехал и оставил вам Golden Corner с долгами. Покажите, что магазин ещё может приносить прибыль.",
-      requirement: `${money(storyProfit)}/${money(900)} прибыли · репутация ${state.reputation}/55`,
-      progress: Math.min(storyProfit / 900, state.reputation / 55) * 100,
-      ready: storyProfit >= 900 && state.reputation >= 55,
-      reward: 250,
-      note: "Не гонись за каждой сделкой. Иногда лучший заработок — вовремя сказать человеку «нет».",
-    },
-    {
-      title: "Второй шанс",
-      subtitle: "Вернуть мастерскую",
-      description: "Когда-то в подвале работал лучший часовщик района. Восстановите мастерскую и верните людям привычку чинить вещи, а не выбрасывать.",
-      requirement: `${state.deals}/12 сделок · ${state.repairs}/2 ремонта`,
-      progress: Math.min(state.deals / 12, state.repairs / 2) * 100,
-      ready: state.deals >= 12 && state.repairs >= 2,
-      reward: 400,
-      note: "Golden Corner появился не ради золота. Твой дед говорил: у каждой вещи должен быть второй шанс.",
-    },
-    {
-      title: "Свой угол",
-      subtitle: "Стать частью района",
-      description: "Сеть «Титан» хочет выкупить помещение. Докажите соседям, что семейный ломбард нужнее очередного безликого филиала.",
-      requirement: `${money(storyProfit)}/${money(2500)} прибыли · репутация ${state.reputation}/65`,
-      progress: Math.min(storyProfit / 2500, state.reputation / 65) * 100,
-      ready: storyProfit >= 2500 && state.reputation >= 65,
-      reward: 750,
-      note: "Если люди возвращаются не только за деньгами, значит это уже не просто магазин. Значит, ты всё сделал правильно.",
-    },
-  ];
-  const activeStoryIndex = Math.min(state.storyChapter, storyChapters.length - 1);
-  const activeStory = storyChapters[activeStoryIndex];
-  const allStoryComplete = state.storyChapter >= storyChapters.length;
-  const storyProgress = allStoryComplete ? 100 : clamp(activeStory.progress, 0, 100);
-
-  const ownedWithData = useMemo(
-    () =>
-      state.inventory.map((owned) => ({
-        ...owned,
-        item: ITEMS.find((entry) => entry.id === owned.itemId) ?? ITEMS[0],
-      })),
+  const visitor = VISITORS[state.caseIndex % VISITORS.length];
+  const item = ITEMS.find((entry) => entry.id === visitor.item) ?? ITEMS[0];
+  const nightInfo = NIGHT_DATA[Math.min(state.night - 1, NIGHT_DATA.length - 1)];
+  const actionsLeft = MAX_ACTIONS - usedActions.length;
+  const alarmLocked = state.falseAlarmsTonight >= 3;
+  const ownedItems = useMemo(
+    () => state.inventory.map((owned) => ({ ...owned, item: ITEMS.find((entry) => entry.id === owned.itemId) ?? ITEMS[0] })),
     [state.inventory],
   );
 
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem(SAVE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as Partial<SaveState> & { storyCompleted?: boolean };
-        setState({
-          ...INITIAL_STATE,
-          ...parsed,
-          inventory: Array.isArray(parsed.inventory) ? parsed.inventory : [],
-          repairs: Number.isFinite(parsed.repairs) ? Number(parsed.repairs) : 0,
-          storyChapter: Number.isFinite(parsed.storyChapter) ? clamp(Number(parsed.storyChapter), 0, 3) : parsed.storyCompleted ? 1 : 0,
-        });
+      const raw = window.localStorage.getItem(SAVE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as Partial<SaveState>;
+        setState({ ...INITIAL_STATE, ...saved, inventory: Array.isArray(saved.inventory) ? saved.inventory : [] });
       }
     } catch {
-      // A broken save never blocks a shift.
+      // A damaged local save should never block the game.
     }
     setLoaded(true);
   }, []);
@@ -242,385 +361,374 @@ export default function PawnShopGame() {
   }, [loaded, state]);
 
   useEffect(() => {
-    setOffer(Math.round(scenario.ask * 0.72 / 10) * 10);
-    setChecks([]);
-    setQuestions([]);
-    setNegotiationRound(0);
-    setPatience(customer.patience);
-    setSellerMessage(scenario.story);
-    setInspecting(null);
+    setPanel("questions");
+    setUsedActions([]);
+    setEvidence([]);
+    setMessage(visitor.intro);
+    setOffer(Math.round(visitor.ask * 0.78 / 10) * 10);
     setItemZoom(false);
-    setMobilePanel("talk");
-  }, [state.caseIndex, scenario.ask, scenario.story, customer.patience]);
+  }, [state.caseIndex, visitor.ask, visitor.intro]);
 
   useEffect(() => {
     if (!toast) return;
-    const timeout = window.setTimeout(() => setToast(null), 2600);
-    return () => window.clearTimeout(timeout);
+    const timer = window.setTimeout(() => setToast(null), 2600);
+    return () => window.clearTimeout(timer);
   }, [toast]);
 
-  const notify = useCallback((text: string, tone: ToastTone = "neutral") => {
-    setToast({ text, tone });
-  }, []);
+  const notify = (text: string, tone: "good" | "bad" | "neutral" = "neutral") => setToast({ text, tone });
 
-  const playBell = () => {
-    try {
-      const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!AudioContextClass) return;
-      const audio = new AudioContextClass();
-      [0, 0.09].forEach((delay, index) => {
-        const oscillator = audio.createOscillator();
-        const gain = audio.createGain();
-        oscillator.type = "sine";
-        oscillator.frequency.value = index ? 940 : 760;
-        gain.gain.setValueAtTime(0.0001, audio.currentTime + delay);
-        gain.gain.exponentialRampToValueAtTime(0.12, audio.currentTime + delay + 0.01);
-        gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + delay + 0.17);
-        oscillator.connect(gain).connect(audio.destination);
-        oscillator.start(audio.currentTime + delay);
-        oscillator.stop(audio.currentTime + delay + 0.19);
-      });
-      window.setTimeout(() => void audio.close(), 500);
-    } catch {
-      // Sound is cosmetic.
-    }
+  const useAction = (key: ActionKey) => {
+    if (usedActions.includes(key) || actionsLeft <= 0 || alarmPhase) return;
+    const result = visitor.answers[key];
+    setUsedActions((current) => [...current, key]);
+    setEvidence((current) => [...current, { key, ...result }]);
+    setMessage(result.text);
   };
 
-  const finishCase = useCallback((patch: Partial<SaveState> = {}) => {
-    setState((current) => {
-      const served = current.servedToday + 1;
-      const closesDay = served >= CASES_PER_DAY;
-      return {
-        ...current,
-        ...patch,
-        cash: (patch.cash ?? current.cash) - (closesDay ? 180 : 0),
-        day: current.day + (closesDay ? 1 : 0),
-        servedToday: closesDay ? 0 : served,
-        caseIndex: current.caseIndex + 1,
-      };
-    });
-    window.setTimeout(playBell, 180);
-  }, []);
-
-  const askQuestion = (type: QuestionType) => {
-    if (questions.includes(type)) return;
-    const nextPatience = clamp(patience - 4, 0, 100);
-    setPatience(nextPatience);
-    setQuestions((current) => [...current, type]);
-    if (type === "origin") {
-      setSellerMessage(
-        scenario.stolen
-          ? "Взял у знакомого пару дней назад. Его номер сейчас не отвечает."
-          : scenario.authentic
-            ? "Вещь моя. Пользовался ей давно, просто сейчас нужны деньги."
-            : "Это подарок. Где именно покупали — уже не помню.",
-      );
-    } else if (type === "documents") {
-      setSellerMessage(
-        scenario.stolen
-          ? "Коробки и чека нет. Давайте без лишней бюрократии."
-          : scenario.authentic
-            ? "Чека уже нет, но серийник и переписку о покупке могу показать."
-            : "Документов не сохранилось, зато вещь выглядит как новая.",
-      );
-    } else {
-      setSellerMessage(
-        scenario.stolen
-          ? "Мне нужно уйти в ближайшие пять минут. Берёте или нет?"
-          : scenario.ask > item.market * 0.75
-            ? "Спешки нет. За бесценок точно не отдам."
-            : "Деньги нужны сегодня, поэтому готов немного уступить.",
-      );
-    }
+  const finishVisitor = (patch: Partial<SaveState>) => {
+    const nextIntruders = patch.intrudersTonight ?? state.intrudersTonight;
+    const losing = nextIntruders >= 3;
+    const closesNight = state.servedTonight + 1 >= CASES_PER_NIGHT;
+    setState((current) => ({
+      ...current,
+      ...patch,
+      servedTonight: current.servedTonight + 1,
+      caseIndex: current.caseIndex + 1,
+      status: losing ? "lost" : current.status,
+    }));
+    setAlarmPhase(null);
+    setItemZoom(false);
+    if (!losing && closesNight) window.setTimeout(() => setNightReport(true), 260);
   };
 
-  const runCheck = (type: CheckType) => {
-    if (checks.includes(type) || inspecting) return;
-    const costs: Record<CheckType, number> = { auth: 18, serial: 24, value: 12 };
-    if (state.cash < costs[type]) {
-      notify("В кассе не хватает денег на проверку", "bad");
-      return;
-    }
-    setState((current) => ({ ...current, cash: current.cash - costs[type] }));
-    setInspecting(type);
-    window.setTimeout(() => {
-      setChecks((current) => [...current, type]);
-      setInspecting(null);
-      notify(type === "auth" ? "Экспертиза завершена" : type === "serial" ? "База ответила" : "Рыночная цена рассчитана", "good");
-    }, 780);
-  };
-
-  const buyItem = () => {
+  const acceptDeal = () => {
     if (offer > state.cash) {
       notify("В кассе недостаточно денег", "bad");
       return;
     }
-    if (offer < scenario.min) {
-      const gap = (scenario.min - offer) / scenario.min;
-      const patienceLoss = Math.round(9 + gap * 24);
-      const nextPatience = patience - patienceLoss;
-      if (nextPatience <= 8 || negotiationRound >= 2) {
-        notify(`${customer.name} отказался и забрал вещь`, "bad");
-        finishCase({ reputation: clamp(state.reputation - 1, 0, 100) });
-        return;
-      }
-      const counter = Math.round((scenario.min + Math.max(0, offer - floorOffer) * 0.14) / 10) * 10;
-      setPatience(nextPatience);
-      setNegotiationRound((round) => round + 1);
-      setOffer(counter);
-      setSellerMessage(`Нет. Моя минимальная цена — ${money(counter)}. Ниже уже не опущусь.`);
-      notify(`Раунд торга ${negotiationRound + 1}/3`, "neutral");
+    if (offer < visitor.min) {
+      setOffer(visitor.min);
+      setMessage(`Нет. Меньше ${money(visitor.min)} не отдам.`);
+      notify("Клиент назвал минимальную цену", "neutral");
       return;
     }
     const owned: OwnedItem = {
-      uid: `${Date.now()}-${scenario.item}`,
-      itemId: scenario.item,
+      uid: `${Date.now()}-${visitor.item}`,
+      itemId: visitor.item,
       buyPrice: offer,
-      condition: scenario.condition,
-      authentic: scenario.authentic,
+      condition: visitor.condition,
       repaired: false,
+      contaminated: !visitor.human,
     };
-    notify(`Куплено: ${item.name} за ${money(offer)}`, scenario.authentic && !scenario.stolen ? "good" : "neutral");
-    finishCase({
+    const intruders = state.intrudersTonight + (visitor.human ? 0 : 1);
+    notify(visitor.human ? `Сделка заключена: ${item.name}` : "Датчик склада зарегистрировал неизвестный сигнал", visitor.human ? "good" : "bad");
+    finishVisitor({
       cash: state.cash - offer,
-      inventory: [...state.inventory, owned],
       deals: state.deals + 1,
+      inventory: [...state.inventory, owned],
+      intrudersTonight: intruders,
+      totalMissed: state.totalMissed + (visitor.human ? 0 : 1),
+      reputation: clamp(state.reputation + (visitor.human ? 1 : -3), 0, 100),
     });
   };
 
-  const callPolice = () => {
-    if (scenario.stolen) {
-      notify("Кража подтверждена. Полиция выписала награду", "good");
-      finishCase({
-        cash: state.cash + 120,
-        reputation: clamp(state.reputation + 7, 0, 100),
-        policeWins: state.policeWins + 1,
+  const refuseVisitor = () => {
+    notify(visitor.human ? "Обычный клиент ушёл без сделки" : "Посетитель покинул магазин", visitor.human ? "neutral" : "good");
+    finishVisitor({ reputation: clamp(state.reputation + (visitor.human ? -1 : 1), 0, 100) });
+  };
+
+  const playAlarm = () => {
+    try {
+      const Context = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Context) return;
+      const audio = new Context();
+      const oscillator = audio.createOscillator();
+      const gain = audio.createGain();
+      oscillator.type = "sawtooth";
+      oscillator.frequency.setValueAtTime(220, audio.currentTime);
+      oscillator.frequency.linearRampToValueAtTime(620, audio.currentTime + 0.6);
+      gain.gain.setValueAtTime(0.08, audio.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 1.1);
+      oscillator.connect(gain).connect(audio.destination);
+      oscillator.start();
+      oscillator.stop(audio.currentTime + 1.1);
+      window.setTimeout(() => void audio.close(), 1400);
+    } catch {
+      // Audio is atmospheric only.
+    }
+  };
+
+  const triggerAlarm = () => {
+    if (alarmLocked || alarmPhase) {
+      notify("После трёх ложных вызовов тревога заблокирована до рассвета", "bad");
+      return;
+    }
+    playAlarm();
+    setAlarmCorrect(!visitor.human);
+    setAlarmPhase("closing");
+    window.setTimeout(() => setAlarmPhase("result"), 1050);
+  };
+
+  const resolveAlarm = () => {
+    if (alarmCorrect) {
+      notify("Подмена задержана. Отдел №7 перечислил награду", "good");
+      finishVisitor({
+        cash: state.cash + 180,
+        reputation: clamp(state.reputation + 4, 0, 100),
+        totalCaught: state.totalCaught + 1,
       });
     } else {
-      notify("Вещь чистая. Клиент требует компенсацию $90", "bad");
-      finishCase({
-        cash: state.cash - 90,
-        reputation: clamp(state.reputation - 6, 0, 100),
+      notify("Это был человек. Выплачена компенсация $120", "bad");
+      finishVisitor({
+        cash: state.cash - 120,
+        reputation: clamp(state.reputation - 7, 0, 100),
+        falseAlarmsTonight: state.falseAlarmsTonight + 1,
       });
     }
   };
 
-  const refuse = () => {
-    notify("Вы отказались от сделки", "neutral");
-    finishCase();
-  };
+  const salePrice = (owned: OwnedItem, market: number) =>
+    Math.round(market * (owned.repaired ? 1.06 : 0.57 + owned.condition / 240));
 
-  const salePrice = (owned: OwnedItem, market: number) => {
-    if (!owned.authentic) return Math.round(market * 0.06);
-    return Math.round(market * (owned.repaired ? 1.05 : 0.58 + owned.condition / 240));
-  };
-
-  const repair = (owned: OwnedItem, cost: number) => {
-    if (owned.repaired || state.cash < cost) {
-      if (state.cash < cost) notify("Не хватает денег на ремонт", "bad");
+  const repairItem = (owned: OwnedItem, cost: number) => {
+    if (owned.repaired || owned.contaminated || state.cash < cost) {
+      if (state.cash < cost) notify("Недостаточно денег на ремонт", "bad");
       return;
     }
     setState((current) => ({
       ...current,
       cash: current.cash - cost,
-      repairs: current.repairs + 1,
-      inventory: current.inventory.map((entry) =>
-        entry.uid === owned.uid ? { ...entry, repaired: true, condition: 100 } : entry,
-      ),
+      inventory: current.inventory.map((entry) => entry.uid === owned.uid ? { ...entry, repaired: true, condition: 100 } : entry),
     }));
-    notify("Мастер восстановил предмет", "good");
+    notify("Предмет восстановлен", "good");
   };
 
-  const sell = (owned: OwnedItem, market: number) => {
+  const sellItem = (owned: OwnedItem, market: number) => {
+    if (owned.contaminated) {
+      notify("От предмета идёт помеха. Дождитесь утренней зачистки", "bad");
+      return;
+    }
     const price = salePrice(owned, market);
     const profit = price - owned.buyPrice;
     setState((current) => ({
       ...current,
       cash: current.cash + price,
-      totalProfit: current.totalProfit + profit,
-      reputation: clamp(current.reputation + (profit > 0 ? 1 : -2), 0, 100),
+      profit: current.profit + profit,
+      reputation: clamp(current.reputation + (profit >= 0 ? 1 : -1), 0, 100),
       inventory: current.inventory.filter((entry) => entry.uid !== owned.uid),
     }));
-    notify(profit >= 0 ? `Продано. Прибыль ${money(profit)}` : `Убыток ${money(Math.abs(profit))}`, profit >= 0 ? "good" : "bad");
+    notify(profit >= 0 ? `Продано. Прибыль ${money(profit)}` : `Продано с убытком ${money(Math.abs(profit))}`, profit >= 0 ? "good" : "bad");
   };
 
-  const resetGame = () => {
-    if (!window.confirm("Начать новую игру и удалить текущий прогресс?")) return;
-    setState(INITIAL_STATE);
+  const continueAfterNight = () => {
+    setNightReport(false);
+    if (state.night >= 7) {
+      setState((current) => ({ ...current, status: "won" }));
+      return;
+    }
+    const seized = state.inventory.filter((entry) => entry.contaminated).length;
+    setState((current) => ({
+      ...current,
+      night: current.night + 1,
+      servedTonight: 0,
+      intrudersTonight: 0,
+      falseAlarmsTonight: 0,
+      cash: current.cash - 120,
+      inventory: current.inventory.filter((entry) => !entry.contaminated),
+    }));
+    if (seized) notify(`Утренняя группа изъяла заражённые предметы: ${seized}`, "neutral");
+    setBriefing(true);
     setView("shop");
   };
 
-  const completeStoryChapter = () => {
-    if (!activeStory.ready || allStoryComplete) return;
-    setState((current) => ({
-      ...current,
-      storyChapter: Math.min(current.storyChapter + 1, storyChapters.length),
-      cash: current.cash + activeStory.reward,
-      reputation: clamp(current.reputation + 3, 0, 100),
-    }));
-    notify(`Глава завершена. Награда ${money(activeStory.reward)}`, "good");
+  const resetGame = () => {
+    if (!window.confirm("Начать новую ночную смену и удалить сохранение?")) return;
+    setState(INITIAL_STATE);
+    setView("shop");
+    setBriefing(true);
+    setNightReport(false);
   };
 
-  const authResult = scenario.authentic ? "Подлинная вещь" : "Обнаружена подделка";
-  const serialResult = scenario.stolen ? "Есть в базе розыска" : "Серийник чистый";
-  const valueResult = `${money(item.market * 0.82)}–${money(item.market * 1.08)}`;
-
   return (
-    <main className="pawn-world">
-      <section className="shop-scene">
-        <img className="scene-background" src="scenes/pawnshop.webp" alt="" />
+    <main className="night-world">
+      <section className={`night-shop ${state.intrudersTonight > 0 ? "danger-present" : ""}`}>
+        <img className="night-background" src="scenes/pawnshop.webp" alt="" />
+        <div className="rain-window" aria-hidden="true" />
 
-        <header className="scene-hud">
-          <button className="hud-brand" onClick={() => setView("shop")} aria-label="Вернуться в ломбард">
-            <BadgeDollarSign size={23} />
-            <span><strong>GOLDEN CORNER</strong><small>PAWN SHOP</small></span>
+        <header className="night-hud">
+          <button className="night-brand" onClick={() => setView("shop")} aria-label="Вернуться за стойку">
+            <BadgeDollarSign size={22} /><span><strong>GOLDEN CORNER</strong><small>НОЧНАЯ СМЕНА</small></span>
           </button>
-          <div className="shift-progress">
-            <span>День {state.day}</span>
-            <div><i style={{ width: `${dayProgress * 100}%` }} /></div>
-            <small>{state.servedToday}/{CASES_PER_DAY}</small>
+          <div className="night-progress">
+            <span>НОЧЬ {state.night}/7</span><i><b style={{ width: `${state.servedTonight / CASES_PER_NIGHT * 100}%` }} /></i><small>{state.servedTonight}/{CASES_PER_NIGHT}</small>
           </div>
-          <div className="hud-stats">
-            <span><Banknote size={17} /><small>Касса</small><strong>{money(state.cash)}</strong></span>
-            <span><Star size={16} fill="currentColor" /><small>Репутация</small><strong>{state.reputation}</strong></span>
+          <div className="night-money"><Banknote size={17} /><span><small>КАССА</small><strong>{money(state.cash)}</strong></span></div>
+          <div className="breach-meter" aria-label={`Проникшие Подмены: ${state.intrudersTonight} из 3`}>
+            <ShieldAlert size={17} /><span><small>СКЛАД</small><b>{[0, 1, 2].map((slot) => <i key={slot} className={slot < state.intrudersTonight ? "filled" : ""} />)}</b></span>
           </div>
-          <nav className="scene-nav" aria-label="Разделы ломбарда">
-            <button className={view === "stock" ? "active" : ""} onClick={() => setView("stock")}><PackageOpen size={19} /><small>Витрина</small><i>{state.inventory.length}</i></button>
-            <button className={view === "workshop" ? "active" : ""} onClick={() => setView("workshop")}><Wrench size={19} /><small>Ремонт</small></button>
-            <button className={view === "story" ? "active" : ""} onClick={() => setView("story")}><CircleDollarSign size={19} /><small>История</small>{!allStoryComplete && <i>{state.storyChapter + 1}/3</i>}</button>
-            <button className={view === "ledger" ? "active" : ""} onClick={() => setView("ledger")}><BookOpenText size={19} /><small>Отчёт</small></button>
-          </nav>
         </header>
 
-        <div className="customer-arrival" key={`arrival-${state.caseIndex}`}>
-          <div className="door-cover">
-            <span className="door-left"><i /></span>
-            <span className="door-right"><i /></span>
-          </div>
-          <div className="bell-flash"><BellRing size={22} /></div>
-          <div
-            className="standing-customer"
-            role="img"
-            aria-label={customer.name}
-            style={{ backgroundImage: `url("${customer.character}")` }}
-          />
+        <nav className="night-nav" aria-label="Разделы">
+          <button className={view === "stock" ? "active" : ""} onClick={() => setView("stock")}><PackageOpen size={20} /><small>Склад</small><i>{state.inventory.length}</i></button>
+          <button className={view === "archive" ? "active" : ""} onClick={() => setView("archive")}><Radio size={20} /><small>Архив</small></button>
+          <button className={view === "ledger" ? "active" : ""} onClick={() => setView("ledger")}><BookOpenText size={20} /><small>Отчёт</small></button>
+        </nav>
+
+        <div className="visitor-stage" key={`visitor-${state.caseIndex}`}>
+          <div className="night-doors"><span /><span /></div>
+          <div className="door-bell"><BellRing size={21} /></div>
+          <div className="night-customer" style={{ backgroundImage: `url("${visitor.character}")` }} role="img" aria-label={visitor.customer} />
         </div>
 
-        <div className="customer-nameplate" key={`name-${state.caseIndex}`}>
-          <span>КЛИЕНТ #{state.servedToday + 1}</span>
-          <strong>{customer.name}</strong>
-          <small>{customer.role}</small>
+        <div className="visitor-card">
+          <small>ПОСЕТИТЕЛЬ #{state.servedTonight + 1}</small>
+          <strong>{visitor.customer}</strong>
+          <span>{visitor.role}</span>
         </div>
 
-        <div className={`inspection-effect ${inspecting ? "active" : ""}`}>
-          <span />
-          <p>{inspecting === "auth" ? "Проверяем материалы…" : inspecting === "serial" ? "Ищем серийный номер…" : "Сравниваем рынок…"}</p>
-        </div>
-
-        <button
-          type="button"
-          className="desk-item"
-          key={`item-${state.caseIndex}`}
-          onClick={() => setItemZoom(true)}
-          aria-label={`Осмотреть ${item.name}`}
-        >
-          <span className="item-shadow" />
+        <button className="night-item" onClick={() => setItemZoom(true)} aria-label={`Рассмотреть ${item.name}`}>
           <img src={item.image} alt={item.name} />
-          <div className="item-label"><small>{item.category}</small><strong>{item.name}</strong><span>{scenario.condition}% состояние · нажмите</span></div>
+          <span><small>{item.category}</small><strong>{item.name}</strong><i>{visitor.condition}% · открыть</i></span>
         </button>
 
-        <section className="desk-interface">
-          <div className="seller-dialogue" key={`dialogue-${sellerMessage}`}>
-            <UserRound size={19} />
-            <p>«{sellerMessage}»</p>
-            <div className="patience-meter">
-              <span>Терпение</span>
-              <i><b style={{ width: `${patience}%` }} /></i>
-            </div>
+        <section className="night-console">
+          <div className="visitor-speech">
+            <UserRound size={20} />
+            <p>«{message}»</p>
+            <div className="action-budget"><small>ДЕЙСТВИЯ</small>{[0, 1, 2].map((slot) => <i key={slot} className={slot < actionsLeft ? "available" : ""} />)}</div>
           </div>
 
-          <div className="interaction-board" data-mobile-panel={mobilePanel}>
-            <div className="mobile-mode-tabs" role="tablist" aria-label="Действия с клиентом">
-              <button className={mobilePanel === "talk" ? "active" : ""} onClick={() => setMobilePanel("talk")}><MessageCircleQuestion size={16} /><span>Спросить</span></button>
-              <button className={mobilePanel === "inspect" ? "active" : ""} onClick={() => setMobilePanel("inspect")}><ScanLine size={16} /><span>Проверить</span><i>{checks.length}/3</i></button>
-              <button className={mobilePanel === "deal" ? "active" : ""} onClick={() => setMobilePanel("deal")}><HandCoins size={16} /><span>Сделка</span></button>
-            </div>
-            <div className="question-rack">
-              <div className="board-title"><MessageCircleQuestion size={16} /><span>Спросить</span></div>
-              <button className={questions.includes("origin") ? "done" : ""} onClick={() => askQuestion("origin")}><span>Откуда вещь?</span>{questions.includes("origin") && <Check size={15} />}</button>
-              <button className={questions.includes("documents") ? "done" : ""} onClick={() => askQuestion("documents")}><span>Есть документы?</span>{questions.includes("documents") && <Check size={15} />}</button>
-              <button className={questions.includes("urgency") ? "done" : ""} onClick={() => askQuestion("urgency")}><span>Почему продаёте?</span>{questions.includes("urgency") && <Check size={15} />}</button>
+          <div className="decision-board" data-panel={panel}>
+            <div className="decision-tabs">
+              <button className={panel === "questions" ? "active" : ""} onClick={() => setPanel("questions")}><MessageCircleQuestion size={16} /><span>Вопросы</span></button>
+              <button className={panel === "checks" ? "active" : ""} onClick={() => setPanel("checks")}><ScanLine size={16} /><span>Проверки</span></button>
+              <button className={panel === "verdict" ? "active" : ""} onClick={() => setPanel("verdict")}><ShieldCheck size={16} /><span>Решение</span></button>
             </div>
 
-            <div className="tool-rack">
-              <div className="board-title"><ScanLine size={16} /><span>Инструменты</span></div>
-              <ToolButton icon={ScanLine} label="Экспертиза" cost="$18" result={authResult} active={checks.includes("auth")} busy={inspecting === "auth"} onClick={() => runCheck("auth")} />
-              <ToolButton icon={Fingerprint} label="Серийник" cost="$24" result={serialResult} active={checks.includes("serial")} busy={inspecting === "serial"} onClick={() => runCheck("serial")} />
-              <ToolButton icon={TrendingUp} label="Оценка" cost="$12" result={valueResult} active={checks.includes("value")} busy={inspecting === "value"} onClick={() => runCheck("value")} />
+            <div className="panel-content question-panel">
+              <ActionButton icon={MessageCircleQuestion} label="Откуда вещь?" actionKey="origin" usedActions={usedActions} result={visitor.answers.origin} onClick={useAction} />
+              <ActionButton icon={Eye} label="Что вы помните?" actionKey="memory" usedActions={usedActions} result={visitor.answers.memory} onClick={useAction} />
+              <ActionButton icon={Tag} label="Что с предметом?" actionKey="item" usedActions={usedActions} result={visitor.answers.item} onClick={useAction} />
             </div>
 
-            <div className="negotiation-rack">
-              <div className="offer-summary">
-                <span>Клиент просит <strong>{money(scenario.ask)}</strong></span>
-                <span>Ваше предложение <b>{money(offer)}</b></span>
+            <div className="panel-content check-panel">
+              <ActionButton icon={HeartPulse} label="Пульс" actionKey="pulse" usedActions={usedActions} result={visitor.answers.pulse} onClick={useAction} />
+              <ActionButton icon={Fingerprint} label="Документы" actionKey="document" usedActions={usedActions} result={visitor.answers.document} onClick={useAction} />
+              <ActionButton icon={Thermometer} label="Сканер вещи" actionKey="object" usedActions={usedActions} result={visitor.answers.object} onClick={useAction} />
+            </div>
+
+            <div className="panel-content verdict-panel">
+              <div className="offer-box">
+                <span>Просит <strong>{money(visitor.ask)}</strong></span>
+                <b>{money(offer)}</b>
+                <input type="range" aria-label="Сумма предложения" min={Math.round(visitor.ask * .45 / 10) * 10} max={visitor.ask} step={10} value={offer} onChange={(event) => setOffer(Number(event.target.value))} />
               </div>
-              <input
-                aria-label="Сумма предложения"
-                type="range"
-                min={floorOffer}
-                max={ceilingOffer}
-                step={10}
-                value={offer}
-                onChange={(event) => setOffer(Number(event.target.value))}
-              />
-              <div className="offer-scale"><span>{money(floorOffer)}</span><span>Торг {negotiationRound}/3</span><span>{money(ceilingOffer)}</span></div>
-              <div className="counter-actions">
-                <button className="police-action" onClick={callPolice}><ShieldAlert size={18} /><span>Полиция</span></button>
-                <button className="refuse-action" onClick={refuse}><X size={18} /><span>Отказать</span></button>
-                <button className="deal-action" onClick={buyItem}><HandCoins size={19} /><span>Предложить {money(offer)}</span></button>
+              <div className="verdict-actions">
+                <button className="refuse-button" onClick={refuseVisitor}><X size={18} /><span>Отказать</span></button>
+                <button className={`alarm-button ${alarmLocked ? "locked" : ""}`} onClick={triggerAlarm}><Siren size={21} /><span>{alarmLocked ? "Заблокировано" : "ТРЕВОГА"}</span></button>
+                <button className="accept-button" onClick={acceptDeal}><HandCoins size={19} /><span>Принять {money(offer)}</span></button>
               </div>
             </div>
           </div>
         </section>
 
         {itemZoom && (
-          <div className="item-focus" role="dialog" aria-modal="true" aria-label={`Осмотр: ${item.name}`}>
-            <button className="item-focus-close" type="button" onClick={() => setItemZoom(false)} aria-label="Закрыть осмотр"><X size={21} /></button>
-            <div className="item-focus-card">
-              <div className="item-focus-visual">
-                <span />
-                <img src={item.image} alt={item.name} />
-              </div>
-              <div className="item-focus-copy">
-                <small>{item.category}</small>
-                <h2>{item.name}</h2>
-                <p>Состояние <strong>{scenario.condition}%</strong></p>
-                <p>Клиент просит <strong>{money(scenario.ask)}</strong></p>
-                <button type="button" onClick={() => { setItemZoom(false); setMobilePanel("inspect"); }}>
-                  <ScanLine size={17} /> Перейти к проверкам
-                </button>
+          <div className="item-inspection" role="dialog" aria-modal="true" aria-label={`Осмотр: ${item.name}`}>
+            <button className="modal-close" onClick={() => setItemZoom(false)} aria-label="Закрыть"><X size={21} /></button>
+            <div className="inspection-card">
+              <div className="inspection-visual"><img src={item.image} alt={item.name} /></div>
+              <div>
+                <small>{item.category}</small><h2>{item.name}</h2>
+                <p>Состояние <strong>{visitor.condition}%</strong></p>
+                <p>Обычная цена <strong>{money(item.market)}</strong></p>
+                <p>Рассмотреть предмет можно бесплатно, но сканер аномалий расходует одно действие.</p>
+                <button onClick={() => { setItemZoom(false); setPanel("checks"); }}><ScanLine size={17} /> Перейти к проверкам</button>
               </div>
             </div>
           </div>
         )}
 
+        {briefing && state.status === "playing" && (
+          <div className="briefing-overlay">
+            <div className="briefing-card">
+              <span className="briefing-number">0{state.night}</span>
+              <small>23:47 · ДО РАССВЕТА 6 ЧАСОВ</small>
+              <h1>{nightInfo.title}</h1>
+              <p>{nightInfo.radio}</p>
+              <div className="night-rule"><CircleAlert size={19} /><span><small>ПРАВИЛО НОЧИ</small><strong>{nightInfo.rule}</strong></span></div>
+              <blockquote>«{nightInfo.note}»<small>— записка дяди Бориса</small></blockquote>
+              <button onClick={() => setBriefing(false)}><LockKeyhole size={18} /> Открыть ночную смену</button>
+            </div>
+          </div>
+        )}
+
+        {alarmPhase && (
+          <div className={`alarm-sequence ${alarmPhase}`}>
+            <div className="alarm-red-light" />
+            <div className="detained-figure">
+              <img src={alarmCorrect ? "anomaly-reveal.png" : visitor.character} alt="" />
+            </div>
+            <div className="security-shutter"><span /><span /><span /><span /><span /><span /></div>
+            <div className="alarm-copy">
+              {alarmPhase === "closing" ? (
+                <><Siren size={32} /><strong>ТРЕВОГА</strong><span>Защитная штора закрывается</span></>
+              ) : (
+                <>
+                  {alarmCorrect ? <ShieldCheck size={34} /> : <CircleAlert size={34} />}
+                  <strong>{alarmCorrect ? "ПОДМЕНА" : "ЧЕЛОВЕК"}</strong>
+                  <span>{alarmCorrect ? "Отдел №7 подтвердил аномалию" : "Признаков аномалии не обнаружено"}</span>
+                  <button onClick={resolveAlarm}>{alarmCorrect ? "Передать Отделу №7" : "Выплатить компенсацию"}</button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {nightReport && (
+          <div className="report-overlay">
+            <div className="report-card">
+              <small>06:00 · СМЕНА ЗАКРЫТА</small>
+              <h2>Отчёт за ночь {state.night}</h2>
+              <div className="report-stats">
+                <span><ShieldCheck size={19} /><small>ЗАДЕРЖАНО</small><strong>{state.totalCaught}</strong></span>
+                <span className={state.intrudersTonight ? "danger" : ""}><ShieldAlert size={19} /><small>ПРОНИКЛО</small><strong>{state.intrudersTonight}/3</strong></span>
+                <span><Star size={19} /><small>РЕПУТАЦИЯ</small><strong>{state.reputation}</strong></span>
+              </div>
+              <p>{state.intrudersTonight ? "Утренняя группа зачистит склад и изымет заражённые предметы. Их стоимость не возвращается." : "Склад чист. Ни одного неизвестного сигнала до рассвета."}</p>
+              <button onClick={continueAfterNight}>{state.night >= 7 ? "Увидеть финал" : "Перейти к следующей ночи"}</button>
+            </div>
+          </div>
+        )}
+
+        {state.status !== "playing" && (
+          <div className={`ending-overlay ${state.status}`}>
+            <div>
+              {state.status === "won" ? <ShieldCheck size={46} /> : <Zap size={46} />}
+              <small>{state.status === "won" ? "06:10 · ЭВАКУАЦИЯ" : "СВЯЗЬ ПОТЕРЯНА"}</small>
+              <h1>{state.status === "won" ? "Вы дожили до рассвета" : "Склад открыт изнутри"}</h1>
+              <p>{state.status === "won" ? `Golden Corner выстоял семь ночей. Задержано Подмен: ${state.totalCaught}. Репутация: ${state.reputation}.` : "Три Подмены оказались внутри одновременно. Защитная система больше не отвечает."}</p>
+              <button onClick={resetGame}><History size={18} /> Начать заново</button>
+            </div>
+          </div>
+        )}
+
         {view !== "shop" && (
-          <div className="room-drawer">
-            <button className="drawer-back" onClick={() => setView("shop")}><ChevronLeft size={19} /> К клиенту</button>
+          <div className="night-drawer">
+            <button className="drawer-back" onClick={() => setView("shop")}><ChevronLeft size={19} /> К посетителю</button>
             {view === "stock" && (
-              <Drawer title="Витрина" subtitle="Продайте купленные вещи посетителям магазина." icon={Store}>
-                {ownedWithData.length === 0 ? (
-                  <EmptyDrawer icon={PackageOpen} text="Витрина пуста. Сначала договоритесь с клиентом у стойки." />
-                ) : (
-                  <div className="stock-shelf">
-                    {ownedWithData.map((owned) => {
+              <Drawer title="Склад и мастерская" subtitle="Ремонтируйте чистые вещи и продавайте их днём." icon={PackageOpen}>
+                {ownedItems.length === 0 ? <EmptyState icon={PackageOpen} text="Склад пуст. Принятые вещи появятся здесь." /> : (
+                  <div className="stock-list">
+                    {ownedItems.map((owned) => {
                       const price = salePrice(owned, owned.item.market);
-                      const profit = price - owned.buyPrice;
                       return (
-                        <article key={owned.uid}>
+                        <article key={owned.uid} className={owned.contaminated ? "contaminated" : ""}>
                           <img src={owned.item.image} alt={owned.item.name} />
-                          <div><small>{owned.item.category}</small><strong>{owned.item.name}</strong><span>Куплено за {money(owned.buyPrice)}</span></div>
-                          <button onClick={() => sell(owned, owned.item.market)}><Tag size={17} /> Продать {money(price)} <b className={profit >= 0 ? "positive" : "negative"}>{profit >= 0 ? "+" : "−"}{money(Math.abs(profit))}</b></button>
+                          <div><small>{owned.contaminated ? "НЕИЗВЕСТНЫЙ СИГНАЛ" : `${owned.condition}% СОСТОЯНИЕ`}</small><strong>{owned.item.name}</strong><span>Куплено за {money(owned.buyPrice)}</span></div>
+                          <div className="stock-actions">
+                            <button disabled={owned.repaired || owned.contaminated} onClick={() => repairItem(owned, owned.item.repairCost)}><Wrench size={16} />{owned.repaired ? "Готово" : money(owned.item.repairCost)}</button>
+                            <button disabled={owned.contaminated} onClick={() => sellItem(owned, owned.item.market)}><Tag size={16} />Продать {money(price)}</button>
+                          </div>
                         </article>
                       );
                     })}
@@ -628,97 +736,32 @@ export default function PawnShopGame() {
                 )}
               </Drawer>
             )}
-            {view === "workshop" && (
-              <Drawer title="Мастерская" subtitle="Восстановление повышает цену настоящих вещей." icon={Hammer}>
-                {ownedWithData.length === 0 ? (
-                  <EmptyDrawer icon={Wrench} text="Мастеру пока нечего ремонтировать." />
-                ) : (
-                  <div className="stock-shelf repair-shelf">
-                    {ownedWithData.map((owned) => (
-                      <article key={owned.uid}>
-                        <img src={owned.item.image} alt={owned.item.name} />
-                        <div><small>Состояние {owned.condition}%</small><strong>{owned.item.name}</strong><span>{owned.repaired ? "Полностью восстановлено" : `Ремонт стоит ${money(owned.item.repairCost)}`}</span></div>
-                        <button disabled={owned.repaired} onClick={() => repair(owned, owned.item.repairCost)}>{owned.repaired ? <><Check size={17} /> Готово</> : <><Wrench size={17} /> Ремонт</>}</button>
+            {view === "archive" && (
+              <Drawer title="Архив ночных сообщений" subtitle="Сводки города и записки дяди Бориса." icon={Radio}>
+                <div className="archive-list">
+                  {NIGHT_DATA.map((entry, index) => {
+                    const unlocked = index < state.night;
+                    return (
+                      <article key={entry.title} className={unlocked ? "" : "locked"}>
+                        <span>0{index + 1}</span>
+                        <div><small>{unlocked ? "РАДИОСВОДКА СОХРАНЕНА" : "ЗАПИСЬ ЗАШИФРОВАНА"}</small><strong>{unlocked ? entry.title : "Следующая ночь"}</strong><p>{unlocked ? entry.radio : "Откроется после завершения текущей смены."}</p>{unlocked && <blockquote>«{entry.note}»</blockquote>}</div>
                       </article>
-                    ))}
-                  </div>
-                )}
-              </Drawer>
-            )}
-            {view === "story" && (
-              <Drawer title="История Golden Corner" subtitle="Три главы о семейном ломбарде и людях, которые сюда возвращаются." icon={CircleDollarSign}>
-                <div className="case-summary">
-                  <span><Store size={21} /></span>
-                  <div>
-                    <small>{allStoryComplete ? "ИСТОРИЯ ЗАВЕРШЕНА" : `ГЛАВА ${state.storyChapter + 1} ИЗ 3 · ${activeStory.subtitle}`}</small>
-                    <strong>{allStoryComplete ? "Golden Corner снова жив" : activeStory.title}</strong>
-                    <p>{allStoryComplete ? "Семейный ломбард пережил долги, вернул мастерскую и стал настоящей частью района." : activeStory.description}</p>
-                    <div className="story-progress"><i style={{ width: `${storyProgress}%` }} /></div>
-                    {!allStoryComplete && <em>{activeStory.requirement}</em>}
-                  </div>
+                    );
+                  })}
                 </div>
-
-                <div className="chapter-list">
-                  {storyChapters.map((chapter, index) => (
-                    <article key={chapter.title} className={`${index < state.storyChapter ? "complete" : ""} ${index === state.storyChapter ? "active" : ""} ${index > state.storyChapter ? "locked" : ""}`}>
-                      <span>{index < state.storyChapter ? <Check size={15} /> : `0${index + 1}`}</span>
-                      <div><small>{chapter.subtitle}</small><strong>{chapter.title}</strong><p>{index <= state.storyChapter ? chapter.description : "Откроется после предыдущей главы."}</p></div>
-                    </article>
-                  ))}
-                </div>
-
-                {!allStoryComplete && (
-                  <blockquote className="boris-note">
-                    <BellRing size={19} />
-                    <div><small>ЗАПИСКА ДЯДИ БОРИСА</small><p>«{activeStory.note}»</p></div>
-                  </blockquote>
-                )}
-
-                {activeStory.ready && !allStoryComplete && (
-                  <button className="story-complete" onClick={completeStoryChapter}>
-                    <Check size={19} /><span><strong>Завершить главу</strong><small>Получить {money(activeStory.reward)} и открыть продолжение</small></span>
-                  </button>
-                )}
-
-                {!activeStory.ready && !allStoryComplete && (
-                  <div className="story-tip"><BellRing size={18} /><p>Просто продолжайте обслуживать клиентов. Сюжетный прогресс идёт автоматически.</p></div>
-                )}
-
-                {allStoryComplete && (
-                  <div className="story-ending">
-                    <strong>Новая вывеска, старые двери</strong>
-                    <p>Вы отказали сети «Титан». Дима принёс первую запись из своей студии, София восстановила шторы, а Виктор Львович вернул на стену фотографию основателя. Магазин остался семейным.</p>
-                  </div>
-                )}
-
-                <section className="lore-section">
-                  <header><UserRound size={18} /><div><strong>Постоянные клиенты</strong><small>Их истории открываются после успешных сделок</small></div></header>
-                  <div className="lore-grid">
-                    {CUSTOMER_LORE.map((entry) => {
-                      const loreCustomer = CUSTOMERS.find((person) => person.id === entry.customer) ?? CUSTOMERS[0];
-                      const unlocked = state.deals >= entry.unlock;
-                      return (
-                        <article key={entry.customer} className={unlocked ? "" : "locked"}>
-                          <div className="lore-portrait" style={{ backgroundImage: unlocked ? `url("${loreCustomer.character}")` : undefined }} />
-                          <div><small>{unlocked ? loreCustomer.name : `Откроется после ${entry.unlock} сделок`}</small><strong>{unlocked ? entry.title : "Неизвестный посетитель"}</strong><p>{unlocked ? entry.text : "Продолжайте работать, чтобы узнать его историю."}</p></div>
-                        </article>
-                      );
-                    })}
-                  </div>
-                </section>
               </Drawer>
             )}
             {view === "ledger" && (
-              <Drawer title="Книга учёта" subtitle="Итоги работы ломбарда." icon={BookOpenText}>
+              <Drawer title="Журнал смены" subtitle="Финансы, безопасность и результаты решений." icon={BookOpenText}>
                 <div className="ledger-grid">
                   <Stat icon={Banknote} label="Касса" value={money(state.cash)} />
-                  <Stat icon={CircleDollarSign} label="Прибыль" value={money(state.totalProfit)} />
                   <Stat icon={HandCoins} label="Сделки" value={String(state.deals)} />
-                  <Stat icon={ShieldCheck} label="Краденое" value={String(state.policeWins)} />
+                  <Stat icon={ShieldCheck} label="Задержано" value={String(state.totalCaught)} />
+                  <Stat icon={ShieldAlert} label="Пропущено" value={String(state.totalMissed)} />
                   <Stat icon={Star} label="Репутация" value={`${state.reputation}/100`} />
-                  <Stat icon={Clock3} label="День" value={String(state.day)} />
+                  <Stat icon={Clock3} label="Ночь" value={`${state.night}/7`} />
                 </div>
-                <div className="shift-note"><BellRing size={19} /><p>После каждых {CASES_PER_DAY} клиентов закрывается смена и списывается аренда $180.</p></div>
+                <div className="shift-note"><Radio size={19} /><p>Три пропущенные Подмены за одну ночь заканчивают игру. Три ложные тревоги блокируют кнопку до рассвета.</p></div>
                 <button className="new-game" onClick={resetGame}><History size={17} /> Начать заново</button>
               </Drawer>
             )}
@@ -726,58 +769,47 @@ export default function PawnShopGame() {
         )}
       </section>
 
-      {toast && <div className={`toast ${toast.tone}`}><span>{toast.tone === "good" ? <Check size={18} /> : toast.tone === "bad" ? <ShieldAlert size={18} /> : <Coins size={18} />}</span>{toast.text}</div>}
+      {toast && <div className={`night-toast ${toast.tone}`}><span>{toast.tone === "good" ? <Check size={18} /> : toast.tone === "bad" ? <ShieldAlert size={18} /> : <CircleAlert size={18} />}</span>{toast.text}</div>}
     </main>
   );
 }
 
-function ToolButton({
+function ActionButton({
   icon: Icon,
   label,
-  cost,
+  actionKey,
+  usedActions,
   result,
-  active,
-  busy,
   onClick,
 }: {
   icon: typeof Store;
   label: string;
-  cost: string;
-  result: string;
-  active: boolean;
-  busy: boolean;
-  onClick: () => void;
+  actionKey: ActionKey;
+  usedActions: ActionKey[];
+  result: { text: string; suspicious: boolean };
+  onClick: (key: ActionKey) => void;
 }) {
+  const used = usedActions.includes(actionKey);
   return (
-    <button className={`tool-button ${active ? "done" : ""} ${busy ? "busy" : ""}`} onClick={onClick}>
+    <button className={`${used ? "used" : ""} ${used && result.suspicious ? "suspicious" : ""}`} onClick={() => onClick(actionKey)}>
       <Icon size={18} />
-      <span><strong>{active ? result : label}</strong><small>{active ? "проверено" : cost}</small></span>
-      {active && <Check size={15} />}
+      <span><strong>{label}</strong><small>{used ? result.text : "1 действие"}</small></span>
+      {used && (result.suspicious ? <CircleAlert size={16} /> : <Check size={16} />)}
     </button>
   );
 }
 
-function Drawer({
-  title,
-  subtitle,
-  icon: Icon,
-  children,
-}: {
-  title: string;
-  subtitle: string;
-  icon: typeof Store;
-  children: React.ReactNode;
-}) {
+function Drawer({ title, subtitle, icon: Icon, children }: { title: string; subtitle: string; icon: typeof Store; children: React.ReactNode }) {
   return (
     <section className="drawer-panel">
-      <header><span><Icon size={25} /></span><div><h2>{title}</h2><p>{subtitle}</p></div></header>
+      <header><span><Icon size={24} /></span><div><h2>{title}</h2><p>{subtitle}</p></div></header>
       {children}
     </section>
   );
 }
 
-function EmptyDrawer({ icon: Icon, text }: { icon: typeof Store; text: string }) {
-  return <div className="empty-drawer"><span><Icon size={34} /></span><p>{text}</p></div>;
+function EmptyState({ icon: Icon, text }: { icon: typeof Store; text: string }) {
+  return <div className="empty-state"><span><Icon size={30} /></span><p>{text}</p></div>;
 }
 
 function Stat({ icon: Icon, label, value }: { icon: typeof Store; label: string; value: string }) {
