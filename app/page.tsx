@@ -10,6 +10,7 @@ import {
   CircleDollarSign,
   Clock3,
   Coins,
+  FileSearch,
   Fingerprint,
   HandCoins,
   Hammer,
@@ -29,7 +30,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-type View = "shop" | "stock" | "workshop" | "ledger";
+type View = "shop" | "stock" | "workshop" | "casefile" | "ledger";
 type MobilePanel = "talk" | "inspect" | "deal";
 type CheckType = "auth" | "serial" | "value";
 type QuestionType = "origin" | "documents" | "urgency";
@@ -82,6 +83,8 @@ type SaveState = {
   totalProfit: number;
   deals: number;
   policeWins: number;
+  storyClues: string[];
+  storyDecision: "open" | "police" | "undercover";
 };
 
 const CUSTOMERS: Customer[] = [
@@ -132,6 +135,8 @@ const INITIAL_STATE: SaveState = {
   totalProfit: 0,
   deals: 0,
   policeWins: 0,
+  storyClues: [],
+  storyDecision: "open",
 };
 
 const SAVE_KEY = "pawn-shop-save-v2";
@@ -150,6 +155,7 @@ export default function PawnShopGame() {
   const [negotiationRound, setNegotiationRound] = useState(0);
   const [patience, setPatience] = useState(60);
   const [inspecting, setInspecting] = useState<CheckType | null>(null);
+  const [itemZoom, setItemZoom] = useState(false);
   const [toast, setToast] = useState<{ text: string; tone: ToastTone } | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -159,6 +165,11 @@ export default function PawnShopGame() {
   const floorOffer = Math.max(25, Math.round(scenario.ask * 0.42 / 10) * 10);
   const ceilingOffer = Math.round(scenario.ask * 1.08 / 10) * 10;
   const dayProgress = state.servedToday / CASES_PER_DAY;
+  const currentStoryClue = scenario.item === "phone"
+    ? "Телефон связан с пропавшим курьером антикварного дома."
+    : scenario.item === "drill"
+      ? "На корпусе дрели обнаружена стёртая метка склада «Меридиан»."
+      : "Серийный номер ведёт к партии вещей с чёрной биркой.";
 
   const ownedWithData = useMemo(
     () =>
@@ -194,6 +205,7 @@ export default function PawnShopGame() {
     setPatience(customer.patience);
     setSellerMessage(scenario.story);
     setInspecting(null);
+    setItemZoom(false);
     setMobilePanel("talk");
   }, [state.caseIndex, scenario.ask, scenario.story, customer.patience]);
 
@@ -290,6 +302,13 @@ export default function PawnShopGame() {
     window.setTimeout(() => {
       setChecks((current) => [...current, type]);
       setInspecting(null);
+      if (type === "serial" && scenario.stolen) {
+        setState((current) => current.storyClues.includes(currentStoryClue)
+          ? current
+          : { ...current, storyClues: [...current.storyClues, currentStoryClue] });
+        notify("Найдена улика для дела «Чёрная бирка»", "good");
+        return;
+      }
       notify(type === "auth" ? "Экспертиза завершена" : type === "serial" ? "База ответила" : "Рыночная цена рассчитана", "good");
     }, 780);
   };
@@ -339,6 +358,9 @@ export default function PawnShopGame() {
         cash: state.cash + 120,
         reputation: clamp(state.reputation + 7, 0, 100),
         policeWins: state.policeWins + 1,
+        storyClues: state.storyClues.includes(currentStoryClue)
+          ? state.storyClues
+          : [...state.storyClues, currentStoryClue],
       });
     } else {
       notify("Вещь чистая. Клиент требует компенсацию $90", "bad");
@@ -393,6 +415,23 @@ export default function PawnShopGame() {
     setView("shop");
   };
 
+  const resolveStory = (decision: "police" | "undercover") => {
+    if (state.storyDecision !== "open" || state.storyClues.length < 2) return;
+    const policeEnding = decision === "police";
+    setState((current) => ({
+      ...current,
+      storyDecision: decision,
+      cash: current.cash + (policeEnding ? 500 : 900),
+      reputation: clamp(current.reputation + (policeEnding ? 12 : -14), 0, 100),
+    }));
+    notify(
+      policeEnding
+        ? "Сеть скупщиков раскрыта. Полиция перечислила награду $500"
+        : "Вы вошли в доверие к скупщику и получили $900, но репутация пострадала",
+      policeEnding ? "good" : "neutral",
+    );
+  };
+
   const authResult = scenario.authentic ? "Подлинная вещь" : "Обнаружена подделка";
   const serialResult = scenario.stolen ? "Есть в базе розыска" : "Серийник чистый";
   const valueResult = `${money(item.market * 0.82)}–${money(item.market * 1.08)}`;
@@ -419,6 +458,7 @@ export default function PawnShopGame() {
           <nav className="scene-nav" aria-label="Разделы ломбарда">
             <button className={view === "stock" ? "active" : ""} onClick={() => setView("stock")}><PackageOpen size={19} /><small>Витрина</small><i>{state.inventory.length}</i></button>
             <button className={view === "workshop" ? "active" : ""} onClick={() => setView("workshop")}><Wrench size={19} /><small>Ремонт</small></button>
+            <button className={view === "casefile" ? "active" : ""} onClick={() => setView("casefile")}><FileSearch size={19} /><small>Дело</small>{state.storyDecision === "open" && <i>{state.storyClues.length}</i>}</button>
             <button className={view === "ledger" ? "active" : ""} onClick={() => setView("ledger")}><BookOpenText size={19} /><small>Отчёт</small></button>
           </nav>
         </header>
@@ -448,11 +488,17 @@ export default function PawnShopGame() {
           <p>{inspecting === "auth" ? "Проверяем материалы…" : inspecting === "serial" ? "Ищем серийный номер…" : "Сравниваем рынок…"}</p>
         </div>
 
-        <div className="desk-item" key={`item-${state.caseIndex}`}>
+        <button
+          type="button"
+          className="desk-item"
+          key={`item-${state.caseIndex}`}
+          onClick={() => setItemZoom(true)}
+          aria-label={`Осмотреть ${item.name}`}
+        >
           <span className="item-shadow" />
           <img src={item.image} alt={item.name} />
-          <div className="item-label"><small>{item.category}</small><strong>{item.name}</strong><span>{scenario.condition}% состояние</span></div>
-        </div>
+          <div className="item-label"><small>{item.category}</small><strong>{item.name}</strong><span>{scenario.condition}% состояние · нажмите</span></div>
+        </button>
 
         <section className="desk-interface">
           <div className="seller-dialogue" key={`dialogue-${sellerMessage}`}>
@@ -508,6 +554,27 @@ export default function PawnShopGame() {
           </div>
         </section>
 
+        {itemZoom && (
+          <div className="item-focus" role="dialog" aria-modal="true" aria-label={`Осмотр: ${item.name}`}>
+            <button className="item-focus-close" type="button" onClick={() => setItemZoom(false)} aria-label="Закрыть осмотр"><X size={21} /></button>
+            <div className="item-focus-card">
+              <div className="item-focus-visual">
+                <span />
+                <img src={item.image} alt={item.name} />
+              </div>
+              <div className="item-focus-copy">
+                <small>{item.category}</small>
+                <h2>{item.name}</h2>
+                <p>Состояние <strong>{scenario.condition}%</strong></p>
+                <p>Клиент просит <strong>{money(scenario.ask)}</strong></p>
+                <button type="button" onClick={() => { setItemZoom(false); setMobilePanel("inspect"); }}>
+                  <ScanLine size={17} /> Перейти к проверкам
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {view !== "shop" && (
           <div className="room-drawer">
             <button className="drawer-back" onClick={() => setView("shop")}><ChevronLeft size={19} /> К клиенту</button>
@@ -545,6 +612,50 @@ export default function PawnShopGame() {
                         <button disabled={owned.repaired} onClick={() => repair(owned, owned.item.repairCost)}>{owned.repaired ? <><Check size={17} /> Готово</> : <><Wrench size={17} /> Ремонт</>}</button>
                       </article>
                     ))}
+                  </div>
+                )}
+              </Drawer>
+            )}
+            {view === "casefile" && (
+              <Drawer title="Дело «Чёрная бирка»" subtitle="Сюжетная глава: проследите цепочку краденых вещей." icon={FileSearch}>
+                <div className="case-summary">
+                  <span><FileSearch size={21} /></span>
+                  <div>
+                    <small>ГЛАВА 1 · ПРОПАВШАЯ ПАРТИЯ</small>
+                    <strong>{state.storyDecision === "open" ? `${state.storyClues.length}/2 ключевые улики` : "Дело завершено"}</strong>
+                    <p>Следователь Мира предупредила: в городе появился скупщик, который помечает краденые вещи чёрной биркой. Проверяйте серийные номера подозрительных товаров.</p>
+                  </div>
+                </div>
+
+                <div className="story-timeline">
+                  <article className="story-entry">
+                    <span>01</span>
+                    <div><small>ДЕНЬ 1</small><strong>Звонок после закрытия</strong><p>Мира просит не спугнуть посредника и собирать совпадения по базе розыска.</p></div>
+                  </article>
+                  <article className={`story-entry ${state.storyClues.length < 1 ? "locked" : ""}`}>
+                    <span>02</span>
+                    <div><small>УЛИКА</small><strong>{state.storyClues[0] ?? "Проверьте серийник краденой вещи"}</strong><p>{state.storyClues.length ? "На разных товарах повторяется одна и та же едва заметная чёрная метка." : "Эта запись откроется после первой успешной проверки."}</p></div>
+                  </article>
+                  <article className={`story-entry ${state.storyClues.length < 2 ? "locked" : ""}`}>
+                    <span>03</span>
+                    <div><small>СВЯЗЬ НАЙДЕНА</small><strong>{state.storyClues[1] ?? "Нужна ещё одна улика"}</strong><p>{state.storyClues.length >= 2 ? "Обе вещи прошли через склад «Меридиан». Этой ночью там будет скупщик." : "Продолжайте проверять подозрительных клиентов."}</p></div>
+                  </article>
+                </div>
+
+                {state.storyClues.length >= 2 && state.storyDecision === "open" && (
+                  <div className="story-choice">
+                    <header><ShieldAlert size={20} /><div><strong>Финал главы</strong><p>Улик достаточно. Как поступить со скупщиком?</p></div></header>
+                    <div>
+                      <button onClick={() => resolveStory("police")}><ShieldCheck size={18} /><span><strong>Передать дело Мире</strong><small>+$500 · +12 репутации</small></span></button>
+                      <button onClick={() => resolveStory("undercover")}><Coins size={18} /><span><strong>Войти с ним в долю</strong><small>+$900 · −14 репутации</small></span></button>
+                    </div>
+                  </div>
+                )}
+
+                {state.storyDecision !== "open" && (
+                  <div className={`story-ending ${state.storyDecision}`}>
+                    <strong>{state.storyDecision === "police" ? "Законный финал" : "Тёмный финал"}</strong>
+                    <p>{state.storyDecision === "police" ? "Сеть «Чёрной бирки» закрыта, а Golden Corner стал доверенным партнёром полиции." : "Скупщик исчез, оставив вам деньги и адрес следующего тайника. Мира больше вам не доверяет."}</p>
                   </div>
                 )}
               </Drawer>
