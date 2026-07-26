@@ -86,26 +86,26 @@ type SaveState = {
 };
 
 const CUSTOMERS: Customer[] = [
-  { id: "max", name: "Макс", role: "спешит и нервничает", image: "/customers/max.webp", patience: 62 },
-  { id: "sofia", name: "София", role: "знает цену красивым вещам", image: "/customers/sofia.webp", patience: 74 },
-  { id: "viktor", name: "Виктор Львович", role: "коллекционер старой школы", image: "/customers/viktor.webp", patience: 86 },
-  { id: "roman", name: "Роман", role: "не любит лишних вопросов", image: "/customers/roman.webp", patience: 48 },
-  { id: "dima", name: "Дима", role: "студент и техноэнтузиаст", image: "/customers/dima.webp", patience: 78 },
+  { id: "max", name: "Макс", role: "спешит и нервничает", image: "customers/max.webp", patience: 62 },
+  { id: "sofia", name: "София", role: "знает цену красивым вещам", image: "customers/sofia.webp", patience: 74 },
+  { id: "viktor", name: "Виктор Львович", role: "коллекционер старой школы", image: "customers/viktor.webp", patience: 86 },
+  { id: "roman", name: "Роман", role: "не любит лишних вопросов", image: "customers/roman.webp", patience: 48 },
+  { id: "dima", name: "Дима", role: "студент и техноэнтузиаст", image: "customers/dima.webp", patience: 78 },
 ];
 
 const ITEMS: Item[] = [
-  { id: "watch", name: "Золотые часы", category: "Часы", image: "/items/watch.webp", market: 1240, repairCost: 115 },
-  { id: "camera", name: "Беззеркальная камера", category: "Техника", image: "/items/camera.webp", market: 860, repairCost: 95 },
-  { id: "guitar", name: "Винтажная гитара", category: "Музыка", image: "/items/guitar.webp", market: 980, repairCost: 130 },
-  { id: "handbag", name: "Кожаная сумка", category: "Аксессуары", image: "/items/handbag.webp", market: 720, repairCost: 80 },
-  { id: "laptop", name: "Игровой ноутбук", category: "Техника", image: "/items/laptop.webp", market: 1350, repairCost: 170 },
-  { id: "coin", name: "Серебряный доллар", category: "Коллекционное", image: "/items/coin.webp", market: 590, repairCost: 40 },
-  { id: "drill", name: "Аккумуляторная дрель", category: "Инструменты", image: "/items/drill.webp", market: 330, repairCost: 55 },
-  { id: "ring", name: "Кольцо с сапфиром", category: "Украшения", image: "/items/ring.webp", market: 1660, repairCost: 145 },
-  { id: "headphones", name: "Студийные наушники", category: "Техника", image: "/items/headphones.webp", market: 410, repairCost: 50 },
-  { id: "statuette", name: "Бронзовая статуэтка", category: "Антиквариат", image: "/items/statuette.webp", market: 810, repairCost: 75 },
-  { id: "phone", name: "Флагманский смартфон", category: "Техника", image: "/items/phone.webp", market: 920, repairCost: 120 },
-  { id: "vinyl", name: "Редкая пластинка", category: "Коллекционное", image: "/items/vinyl.webp", market: 470, repairCost: 35 },
+  { id: "watch", name: "Золотые часы", category: "Часы", image: "items/watch.webp", market: 1240, repairCost: 115 },
+  { id: "camera", name: "Беззеркальная камера", category: "Техника", image: "items/camera.webp", market: 860, repairCost: 95 },
+  { id: "guitar", name: "Винтажная гитара", category: "Музыка", image: "items/guitar.webp", market: 980, repairCost: 130 },
+  { id: "handbag", name: "Кожаная сумка", category: "Аксессуары", image: "items/handbag.webp", market: 720, repairCost: 80 },
+  { id: "laptop", name: "Игровой ноутбук", category: "Техника", image: "items/laptop.webp", market: 1350, repairCost: 170 },
+  { id: "coin", name: "Серебряный доллар", category: "Коллекционное", image: "items/coin.webp", market: 590, repairCost: 40 },
+  { id: "drill", name: "Аккумуляторная дрель", category: "Инструменты", image: "items/drill.webp", market: 330, repairCost: 55 },
+  { id: "ring", name: "Кольцо с сапфиром", category: "Украшения", image: "items/ring.webp", market: 1660, repairCost: 145 },
+  { id: "headphones", name: "Студийные наушники", category: "Техника", image: "items/headphones.webp", market: 410, repairCost: 50 },
+  { id: "statuette", name: "Бронзовая статуэтка", category: "Антиквариат", image: "items/statuette.webp", market: 810, repairCost: 75 },
+  { id: "phone", name: "Флагманский смартфон", category: "Техника", image: "items/phone.webp", market: 920, repairCost: 120 },
+  { id: "vinyl", name: "Редкая пластинка", category: "Коллекционное", image: "items/vinyl.webp", market: 470, repairCost: 35 },
 ];
 
 const SCENARIOS: Scenario[] = [

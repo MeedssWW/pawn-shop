@@ -70,7 +70,7 @@ button { color: inherit; }
 .counter-screen { max-width: 1380px; min-height: 690px; margin: 0 auto; display: grid; grid-template-columns: minmax(320px,.82fr) minmax(520px,1.18fr); gap: 20px; }
 .customer-stage, .deal-desk, .content-screen { border: 1px solid var(--line); border-radius: 24px; background: rgba(19,23,24,.88); box-shadow: 0 28px 70px rgba(0,0,0,.24); }
 .customer-stage { position: relative; min-height: 690px; overflow: hidden; padding: 28px; isolation: isolate; background: #101516; }
-.customer-stage::before { content:""; position:absolute; inset:0; z-index:-3; background: linear-gradient(180deg,transparent 45%,rgba(7,9,10,.94) 88%), url("/customers/max.webp") center/cover; opacity:.11; filter: blur(8px); transform: scale(1.06); }
+.customer-stage::before { content:""; position:absolute; inset:0; z-index:-3; background: linear-gradient(180deg,rgba(237,174,73,.06) 0%,transparent 45%,rgba(7,9,10,.94) 88%); }
 .scene-glow { position:absolute; z-index:-2; width: 360px; height:360px; left:50%; top:25%; transform:translate(-50%,-50%); border-radius:50%; background:rgba(237,174,73,.12); filter:blur(60px); }
 .customer-copy { position: relative; z-index: 2; }
 .queue-label { display:inline-flex; align-items:center; gap:6px; padding:7px 10px; border:1px solid rgba(237,174,73,.2); border-radius:99px; background:rgba(237,174,73,.08); color:var(--gold-2); font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
