@@ -119,11 +119,11 @@ const VISITORS: Visitor[] = [
     customer: "София", role: "говорит слишком спокойно", character: "characters/sofia.webp", item: "ring", ask: 1280, min: 990, condition: 96, human: false,
     intro: "Помолвка закончилась. Кольцо больше ничего для меня не значит.",
     answers: {
-      origin: { text: "Его подарил человек. Имя сейчас несущественно.", suspicious: true },
+      origin: { text: "Подарил Артём после ужина в «Маяке». Коробку выбросила при переезде.", suspicious: false },
       memory: { text: "Это произошло летом. Или зимой. Погода для памяти не важна.", suspicious: true },
-      item: { text: "Сапфир синий. Кольцо круглое. Этого достаточно.", suspicious: true },
+      item: { text: "Размер семнадцатый, застёжек нет. Камень немного царапает соседние пальцы.", suspicious: false },
       pulse: { text: "31 удар. Между импульсами одинаковые паузы до миллисекунды.", suspicious: true },
-      document: { text: "Документ проходит базу, но расстояние между глазами на фото другое.", suspicious: true },
+      document: { text: "Документ проходит базу. Фото старое, но основные признаки совпадают.", suspicious: false },
       object: { text: "Гравировка датирована завтрашним числом.", suspicious: true },
     },
   },
@@ -144,10 +144,10 @@ const VISITORS: Visitor[] = [
     intro: "Телефон знакомого. Он разрешил. Коробку потом принесу.",
     answers: {
       origin: { text: "Знакомого зовут... знакомый. Мы давно знакомы.", suspicious: true },
-      memory: { text: "Вчера мы ели суп. Люди часто едят суп вместе.", suspicious: true },
-      item: { text: "Он звонит, показывает изображения и знает расположение людей.", suspicious: true },
+      memory: { text: "Вчера смотрели футбол и спорили из-за пенальти. Он ушёл после полуночи.", suspicious: false },
+      item: { text: "Экран целый, батарея 84%. В левом углу небольшая вмятина.", suspicious: false },
       pulse: { text: "72 удара. Слишком ровный ритм не меняется даже после испуга.", suspicious: true },
-      document: { text: "Документ чистый и напечатан сегодня в 03:14.", suspicious: true },
+      document: { text: "Документ чистый. Адрес и фотография совпадают с городской базой.", suspicious: false },
       object: { text: "Фронтальная камера показывает пустой стул перед стойкой.", suspicious: true },
     },
   },
@@ -179,11 +179,11 @@ const VISITORS: Visitor[] = [
     customer: "Макс", role: "улыбается без причины", character: "characters/max.webp", item: "coin", ask: 440, min: 310, condition: 88, human: false,
     intro: "Монета деда. Дед был старый. Теперь он больше не старый.",
     answers: {
-      origin: { text: "Нашёл в коробке, где хранят прошлое. У людей много таких коробок.", suspicious: true },
+      origin: { text: "Нашёл в дедовой шкатулке под письмами. Мама разрешила продать.", suspicious: false },
       memory: { text: "Дед рассказывал мне детство после того, как перестал дышать.", suspicious: true },
-      item: { text: "Металлический круг для обмена на бумажные прямоугольники.", suspicious: true },
+      item: { text: "Серебряный доллар 1923 года. На ребре есть небольшая вмятина.", suspicious: false },
       pulse: { text: "Прибор не находит пульс. Клиент продолжает улыбаться.", suspicious: true },
-      document: { text: "Чернила подписи всё ещё влажные, хотя документу девять лет.", suspicious: true },
+      document: { text: "Документ настоящий. Штампы, фотография и подпись соответствуют базе.", suspicious: false },
       object: { text: "Монета охлаждается на два градуса каждый раз, когда клиент говорит.", suspicious: true },
     },
   },
@@ -203,11 +203,11 @@ const VISITORS: Visitor[] = [
     customer: "Виктор Львович", role: "не узнаёт старую фотографию", character: "characters/viktor.webp", item: "statuette", ask: 590, min: 430, condition: 82, human: false,
     intro: "Бронза. Куплена давно. Старые вещи не задают вопросов.",
     answers: {
-      origin: { text: "Блошиный рынок открылся в 1994 году в месте, которого теперь нет.", suspicious: true },
+      origin: { text: "Купил на старом блошином рынке у речного вокзала около двадцати лет назад.", suspicious: false },
       memory: { text: "Я был там с Борисом. Борис выглядел именно так, как сейчас.", suspicious: true },
-      item: { text: "Она изображает птицу. Птицы живут над землёй.", suspicious: true },
+      item: { text: "Бронзовый сокол, французская работа. На основании клеймо литейщика.", suspicious: false },
       pulse: { text: "45 ударов. Ритм совпадает со звуком часов на стене.", suspicious: true },
-      document: { text: "Паспорт настоящий, но его владелец умер шесть дней назад.", suspicious: true },
+      document: { text: "Паспорт подлинный. Архивная фотография и адрес совпадают.", suspicious: false },
       object: { text: "У статуэтки две тени при одном источнике света.", suspicious: true },
     },
   },
@@ -228,10 +228,10 @@ const VISITORS: Visitor[] = [
     intro: "Пластинка досталась вместе с квартирой. Музыка внутри мешает спать.",
     answers: {
       origin: { text: "Квартира находилась на шестом этаже пятиэтажного дома.", suspicious: true },
-      memory: { text: "Предыдущий владелец всё ещё стоит в кухне, если не включать свет.", suspicious: true },
+      memory: { text: "Квартира была пустая, пахла сыростью. Пластинка лежала рядом с книгами.", suspicious: false },
       item: { text: "Запись лучше слушать от конца к началу. Тогда слова становятся тише.", suspicious: true },
-      pulse: { text: "83 удара, но звук доносится из сумки, а не из груди.", suspicious: true },
-      document: { text: "Документы чистые. Голос клиента не совпадает с голосом в архиве.", suspicious: true },
+      pulse: { text: "83 удара. Пульс ровный и естественно ускоряется во время разговора.", suspicious: false },
+      document: { text: "Документы чистые. Фотография, подпись и адрес совпадают.", suspicious: false },
       object: { text: "Пластинка вращается против мотора проигрывателя.", suspicious: true },
     },
   },
@@ -263,9 +263,9 @@ const VISITORS: Visitor[] = [
     customer: "Дима", role: "слишком неподвижный студент", character: "characters/dima.webp", item: "laptop", ask: 920, min: 730, condition: 81, human: false,
     intro: "Мне больше не нужен компьютер. Я уже загрузил всё необходимое.",
     answers: {
-      origin: { text: "Получил его при рождении вместе с именем и формой лица.", suspicious: true },
+      origin: { text: "Купил на втором курсе вместе с отцом. Чек должен быть в облаке.", suspicious: false },
       memory: { text: "На нём сохранены воспоминания Димы. Они открываются без пароля.", suspicious: true },
-      item: { text: "Камера помогла изучить движения век и улыбки.", suspicious: true },
+      item: { text: "Батарея держит около часа, клавиатура и экран без серьёзных дефектов.", suspicious: false },
       pulse: { text: "60 ударов. Пульс прекращается, когда на клиента не смотрят.", suspicious: true },
       document: { text: "Все документы настоящие, но оригинальный Дима отмечен пропавшим.", suspicious: true },
       object: { text: "Веб-камера показывает другого Диму, сидящего в тёмной комнате.", suspicious: true },
@@ -275,11 +275,11 @@ const VISITORS: Visitor[] = [
     customer: "Макс", role: "пришёл второй раз за ночь", character: "characters/max.webp", item: "camera", ask: 540, min: 400, condition: 89, human: false,
     intro: "Мы уже встречались. Вы купили эту камеру завтра утром.",
     answers: {
-      origin: { text: "Она принадлежит вам. Я только возвращаю её в правильное время.", suspicious: true },
+      origin: { text: "Брат оставил её перед отъездом. Я уже приносил похожую модель.", suspicious: false },
       memory: { text: "Помню ваш ответ на вопрос, который вы ещё не задали.", suspicious: true },
-      item: { text: "Последний снимок сделан здесь через два часа после закрытия.", suspicious: true },
+      item: { text: "Объектив чистый, батарея новая. Внутри карта на шестьдесят четыре гигабайта.", suspicious: false },
       pulse: { text: "Пульс идёт назад: интервалы появляются на экране до удара.", suspicious: true },
-      document: { text: "В документе сегодняшняя дата выдачи, но клиент выглядит старше фотографии.", suspicious: true },
+      document: { text: "Документ проходит проверку. Адрес и фотография совпадают.", suspicious: false },
       object: { text: "На последнем кадре вы стоите за клиентом, хотя снимок сделан сейчас.", suspicious: true },
     },
   },
@@ -323,7 +323,7 @@ export default function PawnAfterMidnight() {
   const [view, setView] = useState<View>("shop");
   const [panel, setPanel] = useState<Panel>("questions");
   const [usedActions, setUsedActions] = useState<ActionKey[]>([]);
-  const [evidence, setEvidence] = useState<Array<{ key: ActionKey; text: string; suspicious: boolean }>>([]);
+  const [markedActions, setMarkedActions] = useState<ActionKey[]>([]);
   const [message, setMessage] = useState("");
   const [offer, setOffer] = useState(450);
   const [itemZoom, setItemZoom] = useState(false);
@@ -363,7 +363,7 @@ export default function PawnAfterMidnight() {
   useEffect(() => {
     setPanel("questions");
     setUsedActions([]);
-    setEvidence([]);
+    setMarkedActions([]);
     setMessage(visitor.intro);
     setOffer(Math.round(visitor.ask * 0.78 / 10) * 10);
     setItemZoom(false);
@@ -378,11 +378,17 @@ export default function PawnAfterMidnight() {
   const notify = (text: string, tone: "good" | "bad" | "neutral" = "neutral") => setToast({ text, tone });
 
   const useAction = (key: ActionKey) => {
-    if (usedActions.includes(key) || actionsLeft <= 0 || alarmPhase) return;
+    if (alarmPhase) return;
+    if (usedActions.includes(key)) {
+      setMarkedActions((current) => current.includes(key) ? current.filter((entry) => entry !== key) : [...current, key]);
+      return;
+    }
+    if (actionsLeft <= 0) return;
     const result = visitor.answers[key];
-    setUsedActions((current) => [...current, key]);
-    setEvidence((current) => [...current, { key, ...result }]);
+    const nextActions = [...usedActions, key];
+    setUsedActions(nextActions);
     setMessage(result.text);
+    if (nextActions.length >= MAX_ACTIONS) window.setTimeout(() => setPanel("verdict"), 700);
   };
 
   const finishVisitor = (patch: Partial<SaveState>) => {
@@ -586,6 +592,11 @@ export default function PawnAfterMidnight() {
           <span>{visitor.role}</span>
         </div>
 
+        <div className="rule-chip">
+          <Radio size={14} />
+          <span><small>ПРАВИЛО НОЧИ</small><strong>{nightInfo.rule}</strong></span>
+        </div>
+
         <button className="night-item" onClick={() => setItemZoom(true)} aria-label={`Рассмотреть ${item.name}`}>
           <img src={item.image} alt={item.name} />
           <span><small>{item.category}</small><strong>{item.name}</strong><i>{visitor.condition}% · открыть</i></span>
@@ -600,26 +611,26 @@ export default function PawnAfterMidnight() {
 
           <div className="decision-board" data-panel={panel}>
             <div className="decision-tabs">
-              <button className={panel === "questions" ? "active" : ""} onClick={() => setPanel("questions")}><MessageCircleQuestion size={16} /><span>Вопросы</span></button>
-              <button className={panel === "checks" ? "active" : ""} onClick={() => setPanel("checks")}><ScanLine size={16} /><span>Проверки</span></button>
-              <button className={panel === "verdict" ? "active" : ""} onClick={() => setPanel("verdict")}><ShieldCheck size={16} /><span>Решение</span></button>
+              <button className={panel === "questions" ? "active" : ""} onClick={() => setPanel("questions")}><b>1</b><MessageCircleQuestion size={15} /><span>Вопросы</span></button>
+              <button className={panel === "checks" ? "active" : ""} onClick={() => setPanel("checks")}><b>2</b><ScanLine size={15} /><span>Проверки</span></button>
+              <button className={panel === "verdict" ? "active" : ""} onClick={() => setPanel("verdict")}><b>3</b><ShieldCheck size={15} /><span>Решение</span><i>{markedActions.length}</i></button>
             </div>
 
             <div className="panel-content question-panel">
-              <ActionButton icon={MessageCircleQuestion} label="Откуда вещь?" actionKey="origin" usedActions={usedActions} result={visitor.answers.origin} onClick={useAction} />
-              <ActionButton icon={Eye} label="Что вы помните?" actionKey="memory" usedActions={usedActions} result={visitor.answers.memory} onClick={useAction} />
-              <ActionButton icon={Tag} label="Что с предметом?" actionKey="item" usedActions={usedActions} result={visitor.answers.item} onClick={useAction} />
+              <ActionButton icon={MessageCircleQuestion} label="Откуда вещь?" actionKey="origin" usedActions={usedActions} markedActions={markedActions} result={visitor.answers.origin} onClick={useAction} />
+              <ActionButton icon={Eye} label="Что вы помните?" actionKey="memory" usedActions={usedActions} markedActions={markedActions} result={visitor.answers.memory} onClick={useAction} />
+              <ActionButton icon={Tag} label="Что с предметом?" actionKey="item" usedActions={usedActions} markedActions={markedActions} result={visitor.answers.item} onClick={useAction} />
             </div>
 
             <div className="panel-content check-panel">
-              <ActionButton icon={HeartPulse} label="Пульс" actionKey="pulse" usedActions={usedActions} result={visitor.answers.pulse} onClick={useAction} />
-              <ActionButton icon={Fingerprint} label="Документы" actionKey="document" usedActions={usedActions} result={visitor.answers.document} onClick={useAction} />
-              <ActionButton icon={Thermometer} label="Сканер вещи" actionKey="object" usedActions={usedActions} result={visitor.answers.object} onClick={useAction} />
+              <ActionButton icon={HeartPulse} label="Пульс" actionKey="pulse" usedActions={usedActions} markedActions={markedActions} result={visitor.answers.pulse} onClick={useAction} />
+              <ActionButton icon={Fingerprint} label="Документы" actionKey="document" usedActions={usedActions} markedActions={markedActions} result={visitor.answers.document} onClick={useAction} />
+              <ActionButton icon={Thermometer} label="Сканер вещи" actionKey="object" usedActions={usedActions} markedActions={markedActions} result={visitor.answers.object} onClick={useAction} />
             </div>
 
             <div className="panel-content verdict-panel">
               <div className="offer-box">
-                <span>Просит <strong>{money(visitor.ask)}</strong></span>
+                <span>Просит <strong>{money(visitor.ask)}</strong><small>{markedActions.length ? `Вы отметили фактов: ${markedActions.length}` : "Подозрительных фактов не отмечено"}</small></span>
                 <b>{money(offer)}</b>
                 <input type="range" aria-label="Сумма предложения" min={Math.round(visitor.ask * .45 / 10) * 10} max={visitor.ask} step={10} value={offer} onChange={(event) => setOffer(Number(event.target.value))} />
               </div>
@@ -656,6 +667,11 @@ export default function PawnAfterMidnight() {
               <h1>{nightInfo.title}</h1>
               <p>{nightInfo.radio}</p>
               <div className="night-rule"><CircleAlert size={19} /><span><small>ПРАВИЛО НОЧИ</small><strong>{nightInfo.rule}</strong></span></div>
+              <div className="briefing-guide">
+                <span><b>1</b><small>Выберите любые три вопроса или проверки</small></span>
+                <span><b>2</b><small>Повторный тап отмечает факт как подозрительный</small></span>
+                <span><b>3</b><small>Система не знает ответа — решение принимаете вы</small></span>
+              </div>
               <blockquote>«{nightInfo.note}»<small>— записка дяди Бориса</small></blockquote>
               <button onClick={() => setBriefing(false)}><LockKeyhole size={18} /> Открыть ночную смену</button>
             </div>
@@ -779,6 +795,7 @@ function ActionButton({
   label,
   actionKey,
   usedActions,
+  markedActions,
   result,
   onClick,
 }: {
@@ -786,15 +803,21 @@ function ActionButton({
   label: string;
   actionKey: ActionKey;
   usedActions: ActionKey[];
+  markedActions: ActionKey[];
   result: { text: string; suspicious: boolean };
   onClick: (key: ActionKey) => void;
 }) {
   const used = usedActions.includes(actionKey);
+  const marked = markedActions.includes(actionKey);
   return (
-    <button className={`${used ? "used" : ""} ${used && result.suspicious ? "suspicious" : ""}`} onClick={() => onClick(actionKey)}>
+    <button
+      className={`${used ? "used" : ""} ${marked ? "marked" : ""}`}
+      onClick={() => onClick(actionKey)}
+      aria-label={used ? `${result.text}. ${marked ? "Снять отметку" : "Отметить как подозрительное"}` : label}
+    >
       <Icon size={18} />
       <span><strong>{label}</strong><small>{used ? result.text : "1 действие"}</small></span>
-      {used && (result.suspicious ? <CircleAlert size={16} /> : <Check size={16} />)}
+      {used && (marked ? <CircleAlert size={16} /> : <Eye size={16} />)}
     </button>
   );
 }
