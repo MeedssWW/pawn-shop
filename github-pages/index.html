@@ -26,13 +26,20 @@
         </section>
 
         <section id="game-hud" class="hidden">
-          <div class="hud-pickaxe">
-            <span id="hud-pickaxe-icon" class="sprite-tier-0"></span>
-            <div><small id="hud-pickaxe-tier">ДЕРЕВЯННАЯ</small><div class="hp-track"><i id="hp-fill"></i></div><b id="hp-text">50 / 50 HP</b></div>
+          <div class="hud-main">
+            <div class="hud-pickaxe">
+              <span id="hud-pickaxe-icon" class="sprite-tier-0"></span>
+              <div><small id="hud-pickaxe-tier">ДЕРЕВЯННАЯ</small><div class="hp-track"><i id="hp-fill"></i></div><b id="hp-text">50 / 50 HP</b></div>
+            </div>
+            <div class="hud-values">
+              <span><small>МОНЕТЫ</small><b id="run-coins">0</b></span>
+              <span><small>ГЛУБИНА</small><b id="depth-value">0 м</b></span>
+            </div>
           </div>
-          <div class="hud-values">
-            <span><small>МОНЕТЫ</small><b id="run-coins">0</b></span>
-            <span><small>ГЛУБИНА</small><b id="depth-value">0 м</b></span>
+          <div class="journey-hud">
+            <span><small>РЕКОРД</small><b id="hud-best">0 м</b></span>
+            <div><small id="hud-next-biome">ДО ??? · 100 м</small><i><b id="hud-core-fill"></b></i></div>
+            <strong id="hud-core-percent">0%</strong>
           </div>
         </section>
 
@@ -50,14 +57,24 @@
           <div class="hero-copy">
             <small>АВТОМАТИЧЕСКАЯ ШАХТА</small>
             <h1>PICKAXE<br><em>DROP</em></h1>
-            <p>Один запуск. Случайная шахта.<br>Насколько глубоко упадёт твоя кирка?</p>
+            <p>Главная экспедиция началась.<br>Доберись до ядра планеты.</p>
             <div class="best-chip"><span>ЛУЧШАЯ ГЛУБИНА</span><strong id="menu-best">0 м</strong></div>
+            <button class="account-chip" data-open="progress">
+              <span id="menu-rank-emblem">✦</span>
+              <div><small id="menu-rank">НОВИЧОК · УРОВЕНЬ 1</small><i><b id="menu-xp-fill"></b></i><em id="menu-xp">0 / 90 XP</em></div>
+            </button>
+            <div class="core-progress-card">
+              <div><span>ДО ЯДРА</span><strong id="menu-core-percent">0%</strong></div>
+              <i><b id="menu-core-fill"></b></i>
+              <small id="menu-core-left">ОСТАЛОСЬ 3 000 М</small>
+            </div>
           </div>
           <div class="menu-actions">
             <button id="start-btn" class="primary-button"><span>ЗАПУСТИТЬ КИРКУ</span><b class="sprite-tier-0"></b></button>
             <div>
               <button data-open="upgrades"><span class="ui-icon icon-upgrades"></span><small>УЛУЧШЕНИЯ</small></button>
               <button data-open="missions"><span class="ui-icon icon-missions"></span><small>ЗАДАНИЯ</small><i id="mission-badge" class="hidden">!</i></button>
+              <button data-open="progress"><span class="ui-icon icon-trophy"></span><small>ПУТЬ К ЯДРУ</small></button>
               <button data-open="settings"><span class="ui-icon icon-settings"></span><small>НАСТРОЙКИ</small></button>
             </div>
           </div>
@@ -76,6 +93,10 @@
             </div>
             <div class="result-tier"><small>МАКС. КИРКА</small><strong id="result-tier">Деревянная</strong></div>
             <div class="reward-total"><span>ЗАРАБОТАНО</span><strong><b id="result-coins">0</b><i class="ui-icon icon-coin"></i></strong></div>
+            <div class="xp-result">
+              <span id="result-rank-emblem">✦</span>
+              <div><small id="result-rank">НОВИЧОК · УРОВЕНЬ 1</small><strong id="result-xp">+0 XP</strong><i><b id="result-xp-fill"></b></i></div>
+            </div>
             <button id="double-btn" class="reward-button"><span class="ui-icon icon-play"></span> ×2 НАГРАДУ <small>тест рекламы</small></button>
             <div class="result-actions">
               <button id="again-btn" class="primary-button">ЕЩЁ РАЗ</button>
@@ -113,6 +134,15 @@
 
         <div id="upgrade-flash" class="upgrade-flash hidden"><small>УЛУЧШЕНИЕ!</small><strong id="upgrade-text">Деревянная → Каменная</strong></div>
         <div id="biome-label" class="biome-label hidden"><small>НОВАЯ ЗОНА</small><strong>Каменные глубины</strong></div>
+        <div id="biome-unlock" class="biome-unlock hidden">
+          <div>
+            <small>ГЛОБАЛЬНАЯ КАРТА ОБНОВЛЕНА</small>
+            <span>НОВЫЙ БИОМ</span>
+            <strong id="biome-unlock-name">Кристальные шахты</strong>
+            <p id="biome-unlock-description">Светящиеся жилы неизвестных минералов</p>
+            <i id="biome-unlock-depth">ГЛУБИНА 1 000 М</i>
+          </div>
+        </div>
         <div id="critical-flash" class="critical-flash hidden" aria-live="assertive">
           <small>LUCKY HIT</small>
           <strong>CRITICAL</strong>

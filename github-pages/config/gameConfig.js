@@ -2,6 +2,7 @@ export const GAME = Object.freeze({
   width: 420,
   columns: 8,
   blockSize: 52,
+  metersPerRow: 10,
   chunkRows: 14,
   generateAhead: 34,
   removeBehind: 18,
@@ -62,11 +63,91 @@ export const CRITICAL = Object.freeze({
   blastAt: 0.72,
 });
 
+export const CORE_DEPTH = 3000;
+
 export const BIOMES = Object.freeze([
-  { id: "earth", name: "Земляные пещеры", start: 0, background: ["#3a241f", "#161526"], dust: "#d08b55" },
-  { id: "stone", name: "Каменные глубины", start: 65, background: ["#21364b", "#101827"], dust: "#8aa7bd" },
-  { id: "crystal", name: "Кристальные пещеры", start: 145, background: ["#332050", "#120f26"], dust: "#b883ff" },
-  { id: "fire", name: "Огненная глубина", start: 235, background: ["#5b201d", "#170c16"], dust: "#ff8052" },
+  {
+    id: "surface",
+    name: "Поверхность",
+    start: 0,
+    art: "biomeSurface",
+    background: ["#24475b", "#121727"],
+    dust: "#d7c39d",
+    description: "Последний свет над шахтой",
+  },
+  {
+    id: "earth",
+    name: "Почвенные тоннели",
+    start: 100,
+    art: "biomeSoil",
+    background: ["#493024", "#17131c"],
+    dust: "#d08b55",
+    description: "Корни, окаменелости и старые крепления",
+  },
+  {
+    id: "stone",
+    name: "Каменные пещеры",
+    start: 450,
+    art: "biomeStone",
+    background: ["#21364b", "#101827"],
+    dust: "#8aa7bd",
+    description: "Холодные залы под толщей породы",
+  },
+  {
+    id: "crystal",
+    name: "Кристальные шахты",
+    start: 1000,
+    art: "biomeCrystal",
+    background: ["#332050", "#120f26"],
+    dust: "#b883ff",
+    description: "Светящиеся жилы неизвестных минералов",
+  },
+  {
+    id: "fire",
+    name: "Лавовые глубины",
+    start: 1800,
+    art: "biomeLava",
+    background: ["#5b201d", "#170c16"],
+    dust: "#ff8052",
+    description: "Базальт, жар и реки расплавленной породы",
+  },
+  {
+    id: "core",
+    name: "Ядро планеты",
+    start: CORE_DEPTH,
+    art: "biomeCore",
+    background: ["#4b1820", "#0c1021"],
+    dust: "#ffe58a",
+    description: "Главная цель экспедиции",
+  },
+]);
+
+export const ACCOUNT = Object.freeze({
+  maxLevel: 50,
+  xpBase: 90,
+  xpPower: 1.55,
+});
+
+export const RANKS = Object.freeze([
+  { minLevel: 1, name: "Новичок", emblem: "✦", color: "#a9b6c8" },
+  { minLevel: 4, name: "Любитель", emblem: "◆", color: "#78d7c6" },
+  { minLevel: 8, name: "Шахтёр", emblem: "⛏", color: "#e7b95f" },
+  { minLevel: 14, name: "Проходчик", emblem: "⚒", color: "#f08b54" },
+  { minLevel: 21, name: "Исследователь глубин", emblem: "◈", color: "#af82ff" },
+  { minLevel: 29, name: "Мастер бурения", emblem: "✹", color: "#5ce5e5" },
+  { minLevel: 38, name: "Покоритель недр", emblem: "♛", color: "#ffcb57" },
+  { minLevel: 48, name: "Легенда шахты", emblem: "★", color: "#ffef9a" },
+]);
+
+export const COSMETIC_MILESTONES = Object.freeze([
+  { level: 5, name: "Рамка старателя", detail: "Новая рамка профиля", icon: "◇" },
+  { level: 10, name: "Рассвет экспедиции", detail: "Живой фон главного меню", icon: "▧" },
+  { level: 15, name: "След кометы", detail: "Новый след кирки", icon: "⌁" },
+  { level: 20, name: "Гимн глубины", detail: "Новая музыкальная партия", icon: "♫" },
+  { level: 25, name: "Разлом реальности", detail: "Новая анимация CRITICAL", icon: "✷" },
+  { level: 30, name: "Интерфейс глубин", detail: "Новая визуальная тема UI", icon: "◫" },
+  { level: 40, name: "Живая шахта", detail: "Усиленное оформление биомов", icon: "◉" },
+  { level: 50, name: "Легендарная рамка", detail: "Рамка покорителя ядра", icon: "♛" },
 ]);
 
 export const UPGRADES = Object.freeze({
@@ -104,4 +185,56 @@ export function biomeAtDepth(depth) {
   let result = BIOMES[0];
   for (const biome of BIOMES) if (depth >= biome.start) result = biome;
   return result;
+}
+
+export function nextBiomeAtDepth(depth) {
+  return BIOMES.find((biome) => biome.start > depth) || null;
+}
+
+export function coreProgress(depth) {
+  return Math.max(0, Math.min(100, depth / CORE_DEPTH * 100));
+}
+
+export function totalXpForLevel(level) {
+  const safeLevel = Math.max(1, Math.min(ACCOUNT.maxLevel, Math.floor(level)));
+  return Math.round(ACCOUNT.xpBase * Math.pow(safeLevel - 1, ACCOUNT.xpPower));
+}
+
+export function accountLevelFromXp(xp) {
+  const safeXp = Math.max(0, Number(xp) || 0);
+  let level = 1;
+  while (level < ACCOUNT.maxLevel && safeXp >= totalXpForLevel(level + 1)) level += 1;
+  return level;
+}
+
+export function accountProgress(xp) {
+  const level = accountLevelFromXp(xp);
+  if (level >= ACCOUNT.maxLevel) return { level, current: 1, needed: 1, ratio: 1 };
+  const start = totalXpForLevel(level);
+  const end = totalXpForLevel(level + 1);
+  return {
+    level,
+    current: Math.max(0, xp - start),
+    needed: Math.max(1, end - start),
+    ratio: Math.max(0, Math.min(1, (xp - start) / (end - start))),
+  };
+}
+
+export function rankForLevel(level) {
+  let rank = RANKS[0];
+  for (const candidate of RANKS) if (level >= candidate.minLevel) rank = candidate;
+  return rank;
+}
+
+export function cosmeticRewardForLevel(level) {
+  const milestone = COSMETIC_MILESTONES.find((reward) => reward.level === level);
+  if (milestone) return milestone;
+  const variants = [
+    ["Эмблема глубины", "Новый знак профиля", "✦"],
+    ["Грань рамки", "Новый оттенок рамки", "◇"],
+    ["Искра экспедиции", "Новый эффект эмблемы", "·"],
+    ["Знак маршрута", "Новая метка на карте", "⌄"],
+  ];
+  const variant = variants[(Math.max(1, level) - 1) % variants.length];
+  return { level, name: `${variant[0]} ${level}`, detail: variant[1], icon: variant[2] };
 }

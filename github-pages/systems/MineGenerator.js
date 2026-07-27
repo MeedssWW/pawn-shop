@@ -155,7 +155,7 @@ export class MineGenerator {
   }
 
   biome(depth) {
-    return biomeAtDepth(depth);
+    return biomeAtDepth(depth * GAME.metersPerRow);
   }
 
   injectBlock(row, column, kind, type = kind) {

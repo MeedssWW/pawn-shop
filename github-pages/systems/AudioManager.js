@@ -4,6 +4,7 @@ export class AudioManager {
     this.context = null;
     this.musicNodes = [];
     this.musicStarted = false;
+    this.accountLevel = 1;
   }
 
   ensureContext() {
@@ -82,6 +83,7 @@ export class AudioManager {
       snap: () => { this.noise(0.2, 0.13); this.tone(180, 0.3, "square", 0.11, -120); },
       reward: () => [720, 880, 1080].forEach((frequency, index) => setTimeout(() => this.tone(frequency, 0.16, "sine", 0.08), index * 55)),
       record: () => [520, 650, 780, 1040].forEach((frequency, index) => setTimeout(() => this.tone(frequency, 0.24, "triangle", 0.1), index * 75)),
+      biome: () => [220, 330, 494, 660].forEach((frequency, index) => setTimeout(() => this.tone(frequency, 0.34, "sine", 0.085, 90), index * 95)),
     };
     sounds[name]?.();
   }
@@ -94,7 +96,9 @@ export class AudioManager {
     const master = context.createGain();
     master.gain.value = 0.025 * this.settings.music;
     master.connect(context.destination);
-    for (const [frequency, type] of [[55, "sine"], [82.4, "triangle"]]) {
+    const voices = [[55, "sine"], [82.4, "triangle"]];
+    if (this.accountLevel >= 20) voices.push([110, "sine"], [164.8, "triangle"]);
+    for (const [frequency, type] of voices) {
       const oscillator = context.createOscillator();
       oscillator.type = type;
       oscillator.frequency.value = frequency;
@@ -118,6 +122,10 @@ export class AudioManager {
     this.settings = settings;
     this.stopMusic();
     if (!settings.muted && settings.music) this.startMusic();
+  }
+
+  setAccountLevel(level) {
+    this.accountLevel = Math.max(1, Number(level) || 1);
   }
 
   pause() {

@@ -73,6 +73,7 @@ if (debugParams.has("debug")) {
     forceSlime: () => engine.debugForceSlime(),
     forceCritical: () => engine.debugForceCritical(),
     forceBreak: () => engine.debugForceBreak(),
+    setDepth: (meters) => engine.debugSetDepth(meters),
     setTier: (tier) => {
       if (!engine.pickaxe || !engine.run) return false;
       const safeTier = Math.max(0, Math.min(4, Number(tier) || 0));
@@ -105,6 +106,8 @@ if (debugParams.has("debug")) {
     const tier = debugParams.get("tier");
     if (tier !== null) globalThis.__pickaxeDebug.setTier(tier);
     const event = debugParams.get("event");
+    const depth = debugParams.get("depth");
+    if (depth !== null) engine.debugSetDepth(depth);
     if (event === "forge") setTimeout(() => engine.debugForceForge(), 120);
     if (event === "chain") setTimeout(() => engine.debugForceDynamiteChain(), 120);
     if (event === "slime") setTimeout(() => engine.debugForceSlime(), 120);

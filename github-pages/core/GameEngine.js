@@ -1,4 +1,4 @@
-import { BIOMES, BLOCKS, CRITICAL, GAME, ORES, PICKAXES, SLIME, biomeAtDepth, dynamiteRadius } from "../config/gameConfig.js";
+import { BIOMES, BLOCKS, CRITICAL, GAME, ORES, PICKAXES, SLIME, accountLevelFromXp, biomeAtDepth, dynamiteRadius } from "../config/gameConfig.js";
 import { MineGenerator } from "../systems/MineGenerator.js";
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -130,6 +130,7 @@ export class GameEngine {
     this.ui.hideCritical();
     this.ui.showGame();
     this.ui.updateHud(this.run);
+    this.audio.setAccountLevel(accountLevelFromXp(this.save.data.accountXp));
     this.audio.startMusic();
   }
 
@@ -177,11 +178,17 @@ export class GameEngine {
     this.checkCollision(currentRow);
     this.updateExplosions(delta);
     this.updateEffects(delta);
-    this.run.depth = Math.max(this.run.depth, Math.max(0, currentRow - 1));
+    this.run.depth = Math.max(this.run.depth, Math.max(0, currentRow - 1) * GAME.metersPerRow);
     const biome = biomeAtDepth(this.run.depth);
     if (biome.id !== this.lastBiome) {
       this.lastBiome = biome.id;
-      this.ui.showBiome(biome.name);
+      if (this.save.unlockBiome(biome.id)) {
+        this.slowMotion = Math.max(this.slowMotion, 0.95);
+        this.ui.showBiomeUnlock(biome);
+        this.audio.play("biome");
+      } else {
+        this.ui.showBiome(biome.name);
+      }
     }
     this.run.hp = pickaxe.hp;
     this.run.maxHp = pickaxe.maxHp;
@@ -576,7 +583,15 @@ export class GameEngine {
     if (depth >= 200) this.save.updateMission("depth200", 1);
     if (this.run.coins >= 1000) this.save.updateMission("runCoins1000", 1);
     this.save.addCoins(this.run.coins);
-    this.result = { ...this.run, depth, newRecord };
+    const xp = Math.max(5, Math.round(
+      depth * 0.65
+      + this.run.ores * 4
+      + this.run.forges * 18
+      + this.run.dynamites * 8
+      + this.run.chains * 12,
+    ));
+    const account = this.save.addAccountXp(xp);
+    this.result = { ...this.run, depth, newRecord, xp, account };
     this.state = "result";
     if (newRecord) this.audio.play("record");
     else this.audio.play("reward");
@@ -718,10 +733,15 @@ export class GameEngine {
     const next = BIOMES[Math.min(BIOMES.length - 1, currentIndex + 1)];
     const span = Math.max(1, next.start - current.start);
     const blend = current === next ? 0 : clamp((depth - current.start) / span, 0, 1);
+    const transition = current === next ? 0 : clamp((depth - next.start + Math.min(90, span * 0.18)) / Math.min(90, span * 0.18), 0, 1);
     const gradient = this.context.createLinearGradient(0, 0, 0, this.viewportHeight);
     gradient.addColorStop(0, mixColor(current.background[0], next.background[0], blend));
     gradient.addColorStop(1, mixColor(current.background[1], next.background[1], blend));
     this.context.fillStyle = gradient;
+    this.context.fillRect(-20, -20, GAME.width + 40, this.viewportHeight + 40);
+    this.drawBiomeArtwork(current, 1);
+    if (transition > 0) this.drawBiomeArtwork(next, transition);
+    this.context.fillStyle = `rgba(5,7,15,${accountLevelFromXp(this.save.data.accountXp) >= 40 ? 0.36 : 0.47})`;
     this.context.fillRect(-20, -20, GAME.width + 40, this.viewportHeight + 40);
     this.renderCaveBackdrop(current, next, blend);
     this.context.globalAlpha = 0.18;
@@ -732,6 +752,30 @@ export class GameEngine {
       this.context.fillRect(x, y, index % 4 === 0 ? 3 : 1.5, index % 5 === 0 ? 3 : 1.5);
     }
     this.context.globalAlpha = 1;
+  }
+
+  drawBiomeArtwork(biome, alpha) {
+    const image = this.assets?.get(biome.art);
+    if (!image) return;
+    const context = this.context;
+    const targetRatio = GAME.width / this.viewportHeight;
+    const sourceRatio = image.width / image.height;
+    let sourceX = 0;
+    let sourceY = 0;
+    let sourceWidth = image.width;
+    let sourceHeight = image.height;
+    if (sourceRatio > targetRatio) {
+      sourceWidth = image.height * targetRatio;
+      sourceX = (image.width - sourceWidth) / 2;
+    } else {
+      sourceHeight = image.width / targetRatio;
+      sourceY = (image.height - sourceHeight) / 2;
+    }
+    context.save();
+    context.globalAlpha = alpha;
+    context.imageSmoothingEnabled = true;
+    context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, GAME.width, this.viewportHeight);
+    context.restore();
   }
 
   renderCaveBackdrop(current, next, blend) {
@@ -853,9 +897,10 @@ export class GameEngine {
     const y = block.y;
     if (block.kind === "normal") {
       let tile = TILE_ATLAS[block.type];
-      if (block.row >= 235) {
+      const blockBiome = biomeAtDepth(block.row * GAME.metersPerRow);
+      if (blockBiome.id === "fire" || blockBiome.id === "core") {
         tile = block.type === "obsidian" ? TILE_ATLAS.fire : block.type === "hard" ? TILE_ATLAS.ember : TILE_ATLAS.masonry;
-      } else if (block.row >= 145) {
+      } else if (blockBiome.id === "crystal") {
         tile = block.type === "stone" ? TILE_ATLAS.blueRock : block.type === "hard" ? TILE_ATLAS.obsidian : tile;
       }
       this.drawAtlasTile(x, y, tile);
@@ -978,12 +1023,21 @@ export class GameEngine {
     const screenY = pickaxe.y - this.cameraY;
     const tier = PICKAXES[pickaxe.tier];
     if (pickaxe.alive && pickaxe.vy > 350) {
+      const cometTrail = accountLevelFromXp(this.save.data.accountXp) >= 15;
       context.strokeStyle = `${tier.glow}66`;
-      context.lineWidth = 5;
+      context.lineWidth = cometTrail ? 8 : 5;
       context.beginPath();
       context.moveTo(pickaxe.x, screenY - 22);
-      context.lineTo(pickaxe.x - pickaxe.vx * 0.05, screenY - 62);
+      context.lineTo(pickaxe.x - pickaxe.vx * 0.05, screenY - (cometTrail ? 86 : 62));
       context.stroke();
+      if (cometTrail) {
+        context.strokeStyle = "rgba(255,224,126,.58)";
+        context.lineWidth = 2;
+        context.beginPath();
+        context.moveTo(pickaxe.x + 5, screenY - 25);
+        context.lineTo(pickaxe.x - pickaxe.vx * 0.06 + 8, screenY - 98);
+        context.stroke();
+      }
     }
     if (!pickaxe.alive) return;
     context.save();
@@ -1105,6 +1159,19 @@ export class GameEngine {
     const block = this.debugInject("ore", 1, 0, "goldOre");
     this.startCritical(block);
     return block;
+  }
+
+  debugSetDepth(meters) {
+    if (!this.generator || !this.pickaxe || !this.run) return false;
+    const safeDepth = Math.max(0, Number(meters) || 0);
+    const row = Math.floor(safeDepth / GAME.metersPerRow) + 1;
+    this.generator.generateUntil(row + GAME.generateAhead);
+    this.pickaxe.y = row * GAME.blockSize;
+    this.pickaxe.previousY = this.pickaxe.y;
+    this.pickaxe.vy = 80;
+    this.cameraY = Math.max(0, this.pickaxe.y - this.viewportHeight * 0.38);
+    this.run.depth = safeDepth;
+    return true;
   }
 
   debugForceBreak() {

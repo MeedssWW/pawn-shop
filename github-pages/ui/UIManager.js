@@ -1,4 +1,17 @@
-import { DAILY_MISSIONS, PICKAXES, UPGRADES, upgradeCost } from "../config/gameConfig.js";
+import {
+  BIOMES,
+  CORE_DEPTH,
+  COSMETIC_MILESTONES,
+  DAILY_MISSIONS,
+  PICKAXES,
+  UPGRADES,
+  accountProgress,
+  coreProgress,
+  cosmeticRewardForLevel,
+  nextBiomeAtDepth,
+  rankForLevel,
+  upgradeCost,
+} from "../config/gameConfig.js";
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -82,6 +95,16 @@ export class UIManager {
     $("#result-dynamites").textContent = result.dynamites;
     $("#result-tier").textContent = PICKAXES[result.maxTier].name;
     $("#result-coins").textContent = result.coins.toLocaleString("ru-RU");
+    const progress = accountProgress(this.save.data.accountXp);
+    const rank = rankForLevel(progress.level);
+    $("#result-rank-emblem").textContent = rank.emblem;
+    $("#result-rank-emblem").style.setProperty("--rank-color", rank.color);
+    $("#result-rank").textContent = `${rank.name.toUpperCase()} · УРОВЕНЬ ${progress.level}`;
+    $("#result-xp").textContent = result.account?.leveledUp
+      ? `+${result.xp || 0} XP · НОВЫЙ УРОВЕНЬ!`
+      : `+${result.xp || 0} XP`;
+    $(".xp-result").classList.toggle("leveled", Boolean(result.account?.leveledUp));
+    $("#result-xp-fill").style.width = `${progress.ratio * 100}%`;
     $("#record-label").classList.toggle("hidden", !result.newRecord);
     $("#double-btn").disabled = Boolean(result.doubled);
     $("#double-btn small").textContent = result.doubled ? "получено" : "добровольная реклама";
@@ -103,6 +126,15 @@ export class UIManager {
     $("#hp-text").textContent = `${Math.ceil(run.hp)} / ${run.maxHp} HP`;
     $("#run-coins").textContent = Math.round(run.coins).toLocaleString("ru-RU");
     $("#depth-value").textContent = `${run.depth} м`;
+    const best = Math.max(this.save.data.bestDepth, run.depth);
+    const next = nextBiomeAtDepth(run.depth);
+    const percent = coreProgress(run.depth);
+    $("#hud-best").textContent = `${best} м`;
+    $("#hud-next-biome").textContent = next
+      ? `ДО ${this.save.data.unlockedBiomes.includes(next.id) ? next.name.toUpperCase() : "???"} · ${Math.max(0, next.start - run.depth)} М`
+      : "ЯДРО ДОСТИГНУТО";
+    $("#hud-core-fill").style.width = `${percent}%`;
+    $("#hud-core-percent").textContent = `${percent < 1 && percent > 0 ? percent.toFixed(1) : Math.round(percent)}%`;
   }
 
   updateMenu() {
@@ -110,6 +142,20 @@ export class UIManager {
     $("#menu-coins").textContent = data.coins.toLocaleString("ru-RU");
     $("#menu-best").textContent = `${data.bestDepth} м`;
     $("#modal-coins").textContent = data.coins.toLocaleString("ru-RU");
+    const progress = accountProgress(data.accountXp);
+    const rank = rankForLevel(progress.level);
+    const percent = coreProgress(data.bestDepth);
+    $("#menu-rank-emblem").textContent = rank.emblem;
+    $("#menu-rank-emblem").style.setProperty("--rank-color", rank.color);
+    $("#menu-rank").textContent = `${rank.name.toUpperCase()} · УРОВЕНЬ ${progress.level}`;
+    $("#menu-xp-fill").style.width = `${progress.ratio * 100}%`;
+    $("#menu-xp").textContent = progress.level >= 50 ? "МАКСИМАЛЬНЫЙ УРОВЕНЬ" : `${progress.current.toLocaleString("ru-RU")} / ${progress.needed.toLocaleString("ru-RU")} XP`;
+    $("#menu-core-fill").style.width = `${percent}%`;
+    $("#menu-core-percent").textContent = `${percent < 1 && percent > 0 ? percent.toFixed(1) : Math.round(percent)}%`;
+    $("#menu-core-left").textContent = data.bestDepth >= CORE_DEPTH
+      ? "ЯДРО ДОСТИГНУТО"
+      : `ОСТАЛОСЬ ${(CORE_DEPTH - data.bestDepth).toLocaleString("ru-RU")} М`;
+    this.applyCosmetics(progress.level);
     const claimable = data.daily.missions.some((entry) => {
       const config = DAILY_MISSIONS.find((mission) => mission.id === entry.id);
       return config && !entry.claimed && entry.progress >= config.target;
@@ -120,10 +166,11 @@ export class UIManager {
 
   openModal(type) {
     this.previousScreen = this.screens.result.classList.contains("active") ? "result" : "menu";
-    $("#modal-kicker").textContent = type === "upgrades" ? "МАСТЕРСКАЯ" : type === "missions" ? "КАЖДЫЙ ДЕНЬ" : "ПАРАМЕТРЫ";
-    $("#modal-title").textContent = type === "upgrades" ? "Улучшения" : type === "missions" ? "Задания" : "Настройки";
+    $("#modal-kicker").textContent = type === "upgrades" ? "МАСТЕРСКАЯ" : type === "missions" ? "КАЖДЫЙ ДЕНЬ" : type === "progress" ? "ГЛОБАЛЬНАЯ ЦЕЛЬ" : "ПАРАМЕТРЫ";
+    $("#modal-title").textContent = type === "upgrades" ? "Улучшения" : type === "missions" ? "Задания" : type === "progress" ? "Путь к ядру" : "Настройки";
     if (type === "upgrades") this.renderUpgrades();
     if (type === "missions") this.renderMissions();
+    if (type === "progress") this.renderProgress();
     if (type === "settings") this.renderSettings();
     this.setScreen("modal");
   }
@@ -244,6 +291,76 @@ export class UIManager {
     });
   }
 
+  renderProgress() {
+    const data = this.save.data;
+    const progress = accountProgress(data.accountXp);
+    const rank = rankForLevel(progress.level);
+    const percent = coreProgress(data.bestDepth);
+    const nextBiome = nextBiomeAtDepth(data.bestDepth);
+    const nextReward = cosmeticRewardForLevel(Math.min(50, progress.level + 1));
+    const content = $("#modal-content");
+    content.innerHTML = `
+      <section class="expedition-profile" style="--rank-color:${rank.color};--level-hue:${(progress.level * 23) % 360}">
+        <span class="rank-emblem">${rank.emblem}</span>
+        <div>
+          <small>ЗВАНИЕ</small>
+          <strong>${rank.name}</strong>
+          <p>Уровень аккаунта ${progress.level}</p>
+          <i class="account-progress"><b style="width:${progress.ratio * 100}%"></b></i>
+          <em>${progress.level >= 50 ? "МАКСИМАЛЬНЫЙ УРОВЕНЬ" : `${progress.current.toLocaleString("ru-RU")} / ${progress.needed.toLocaleString("ru-RU")} XP`}</em>
+        </div>
+      </section>
+      <section class="core-map-summary">
+        <div><small>ЭКСПЕДИЦИЯ К ЯДРУ</small><strong>${percent < 1 && percent > 0 ? percent.toFixed(1) : Math.round(percent)}%</strong></div>
+        <i><b style="width:${percent}%"></b><span style="left:${percent}%"></span></i>
+        <p><span>РЕКОРД <b>${data.bestDepth.toLocaleString("ru-RU")} М</b></span><span>${nextBiome ? `ДО ${data.unlockedBiomes.includes(nextBiome.id) ? nextBiome.name.toUpperCase() : "???"} <b>${Math.max(0, nextBiome.start - data.bestDepth).toLocaleString("ru-RU")} М</b>` : "<b>ЯДРО ДОСТИГНУТО</b>"}</span></p>
+      </section>
+      <section class="depth-map">
+        ${BIOMES.map((biome, index) => {
+          const unlocked = data.unlockedBiomes.includes(biome.id);
+          const reached = data.bestDepth >= biome.start;
+          const artUrl = unlocked ? `url("${this.biomeArtUrl(biome)}")` : "none";
+          return `<article class="${unlocked ? "unlocked" : "locked"} ${reached ? "reached" : ""}" style="--biome-art:${artUrl};--biome-color:${biome.dust}">
+            <span class="map-node">${unlocked ? (index === BIOMES.length - 1 ? "●" : "◆") : "?"}</span>
+            <div><small>${biome.start.toLocaleString("ru-RU")} М</small><strong>${unlocked ? biome.name : "???"}</strong><p>${unlocked ? biome.description : "Продолжай спуск, чтобы открыть эту область"}</p></div>
+            <i>${reached ? "ОТКРЫТО" : `${Math.max(0, biome.start - data.bestDepth).toLocaleString("ru-RU")} М`}</i>
+          </article>`;
+        }).join("")}
+      </section>
+      <section class="cosmetic-road">
+        <header><div><strong>НАГРАДЫ ЭКСПЕДИЦИИ</strong><small>Только косметика — никакого преимущества</small></div><i>50</i></header>
+        <div class="next-cosmetic"><span>${nextReward.icon}</span><div><small>СЛЕДУЮЩЕЕ ОТКРЫТИЕ · УР. ${nextReward.level}</small><strong>${nextReward.name}</strong><p>${nextReward.detail}</p></div></div>
+        <div class="cosmetic-grid">
+          ${COSMETIC_MILESTONES.map((reward) => `<article class="${progress.level >= reward.level ? "unlocked" : "locked"}">
+            <span>${reward.icon}</span><small>УРОВЕНЬ ${reward.level}</small><strong>${reward.name}</strong><p>${reward.detail}</p>
+          </article>`).join("")}
+        </div>
+      </section>`;
+  }
+
+  biomeArtUrl(biome) {
+    const map = {
+      biomeSurface: "assets/biomes/surface.jpg",
+      biomeSoil: "assets/biomes/soil.jpg",
+      biomeStone: "assets/biomes/stone.jpg",
+      biomeCrystal: "assets/biomes/crystal.jpg",
+      biomeLava: "assets/biomes/lava.jpg",
+      biomeCore: "assets/biomes/core.jpg",
+    };
+    return new URL(map[biome.art], document.baseURI).href;
+  }
+
+  applyCosmetics(level) {
+    const shell = $("#game-shell");
+    shell.dataset.accountLevel = level;
+    shell.style.setProperty("--level-hue", (level * 23) % 360);
+    shell.classList.toggle("cosmetic-frame", level >= 5);
+    shell.classList.toggle("cosmetic-menu", level >= 10);
+    shell.classList.toggle("critical-v2", level >= 25);
+    shell.classList.toggle("ui-aurora", level >= 30);
+    shell.classList.toggle("legendary-frame", level >= 50);
+  }
+
   renderSettings() {
     const settings = this.save.data.settings;
     $("#modal-content").innerHTML = `
@@ -324,6 +441,19 @@ export class UIManager {
     element.classList.remove("hidden");
     clearTimeout(this.biomeTimer);
     this.biomeTimer = setTimeout(() => element.classList.add("hidden"), 1800);
+  }
+
+  showBiomeUnlock(biome) {
+    const element = $("#biome-unlock");
+    element.style.setProperty("--biome-unlock-art", `url("${this.biomeArtUrl(biome)}")`);
+    $("#biome-unlock-name").textContent = biome.name;
+    $("#biome-unlock-description").textContent = biome.description;
+    $("#biome-unlock-depth").textContent = `ГЛУБИНА ${biome.start.toLocaleString("ru-RU")} М`;
+    element.classList.add("hidden");
+    void element.offsetWidth;
+    element.classList.remove("hidden");
+    clearTimeout(this.biomeUnlockTimer);
+    this.biomeUnlockTimer = setTimeout(() => element.classList.add("hidden"), 2700);
   }
 
   toast(message) {

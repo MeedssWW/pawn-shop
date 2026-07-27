@@ -2,6 +2,12 @@ const ASSET_FILES = Object.freeze({
   mine: "assets/mine-texture-atlas.png",
   pickaxes: "assets/pickaxe-sprites.png",
   ui: "assets/ui-icon-atlas.png",
+  biomeSurface: "assets/biomes/surface.jpg",
+  biomeSoil: "assets/biomes/soil.jpg",
+  biomeStone: "assets/biomes/stone.jpg",
+  biomeCrystal: "assets/biomes/crystal.jpg",
+  biomeLava: "assets/biomes/lava.jpg",
+  biomeCore: "assets/biomes/core.jpg",
 });
 
 function loadImage(source) {

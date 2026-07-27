@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
-import { BLOCKS, CRITICAL, GENERATION, ORES, PICKAXES, SLIME, biomeAtDepth, dynamiteRadius, upgradeCost } from "../github-pages/config/gameConfig.js";
+import { BIOMES, BLOCKS, CORE_DEPTH, CRITICAL, GAME, GENERATION, ORES, PICKAXES, SLIME, accountLevelFromXp, biomeAtDepth, coreProgress, dynamiteRadius, rankForLevel, upgradeCost } from "../github-pages/config/gameConfig.js";
 import { GameEngine } from "../github-pages/core/GameEngine.js";
 import { MineGenerator } from "../github-pages/systems/MineGenerator.js";
 import { SaveManager, SAVE_KEY } from "../github-pages/systems/SaveManager.js";
@@ -44,10 +44,12 @@ test("generates mine sections on demand with specials and deeper materials", () 
   const deepTypes = new Set([...mine.blocks.values()].filter(({ row }) => row > 250).map(({ type }) => type));
   assert.ok(deepTypes.has("obsidian"));
   assert.ok(deepTypes.has("crystal") || deepTypes.has("rainbow"));
-  assert.equal(biomeAtDepth(0).id, "earth");
-  assert.equal(biomeAtDepth(80).id, "stone");
-  assert.equal(biomeAtDepth(170).id, "crystal");
-  assert.equal(biomeAtDepth(260).id, "fire");
+  assert.equal(biomeAtDepth(0).id, "surface");
+  assert.equal(biomeAtDepth(100).id, "earth");
+  assert.equal(biomeAtDepth(450).id, "stone");
+  assert.equal(biomeAtDepth(1000).id, "crystal");
+  assert.equal(biomeAtDepth(1800).id, "fire");
+  assert.equal(biomeAtDepth(3000).id, "core");
 });
 
 test("supports deterministic chain-reaction neighborhoods", () => {
@@ -77,6 +79,20 @@ test("recovers safely from corrupt saves and persists upgrades", () => {
   assert.equal(reloaded.data.coins, 500);
   assert.equal(reloaded.data.upgrades.durability, 3);
   assert.equal(reloaded.data.daily.missions.length, 3);
+  assert.equal(reloaded.data.accountXp, 0);
+  assert.deepEqual(reloaded.data.unlockedBiomes, ["surface"]);
+});
+
+test("tracks the permanent expedition to the core, account levels and ranks", () => {
+  assert.equal(CORE_DEPTH, 3000);
+  assert.equal(GAME.metersPerRow, 10);
+  assert.equal(BIOMES.length, 6);
+  assert.equal(coreProgress(1500), 50);
+  assert.equal(coreProgress(3000), 100);
+  assert.equal(accountLevelFromXp(0), 1);
+  assert.ok(accountLevelFromXp(1000) > 1);
+  assert.equal(rankForLevel(1).name, "Новичок");
+  assert.equal(rankForLevel(50).name, "Легенда шахты");
 });
 
 test("production HTML contains the canvas, mobile controls, Yandex SDK and modular entry", async () => {
@@ -92,6 +108,8 @@ test("production HTML contains the canvas, mobile controls, Yandex SDK and modul
   await access(new URL("../github-pages/public/assets/mine-texture-atlas.png", import.meta.url));
   await access(new URL("../github-pages/public/assets/pickaxe-sprites.png", import.meta.url));
   await access(new URL("../github-pages/public/assets/ui-icon-atlas.png", import.meta.url));
+  await access(new URL("../github-pages/public/assets/biomes/surface.jpg", import.meta.url));
+  await access(new URL("../github-pages/public/assets/biomes/core.jpg", import.meta.url));
 });
 
 test("uses collision normals for physical ricochets without position teleports", async () => {
