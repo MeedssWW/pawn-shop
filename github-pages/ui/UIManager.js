@@ -305,6 +305,19 @@ export class UIManager {
     this.upgradeTimer = setTimeout(() => element.classList.add("hidden"), 1600);
   }
 
+  showCritical() {
+    const element = $("#critical-flash");
+    element.classList.add("hidden");
+    void element.offsetWidth;
+    element.classList.remove("hidden");
+    $("#game-shell").classList.add("critical-active");
+  }
+
+  hideCritical() {
+    $("#critical-flash").classList.add("hidden");
+    $("#game-shell").classList.remove("critical-active");
+  }
+
   showBiome(name) {
     const element = $("#biome-label");
     element.querySelector("strong").textContent = name;

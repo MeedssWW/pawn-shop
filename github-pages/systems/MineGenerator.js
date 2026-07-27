@@ -1,4 +1,4 @@
-import { BIOMES, BLOCKS, GAME, GENERATION, ORES, biomeAtDepth } from "../config/gameConfig.js";
+import { BIOMES, BLOCKS, GAME, GENERATION, ORES, SLIME, biomeAtDepth } from "../config/gameConfig.js";
 
 class SeededRandom {
   constructor(seed = Date.now()) {
@@ -54,6 +54,7 @@ export class MineGenerator {
     const progress = Math.min(1, depth / GENERATION.depthScale);
     const forgeChance = Math.min(GENERATION.forgeMax, GENERATION.base.forge + this.forgeUpgrade * GENERATION.forgeUpgradeStep);
     const dynamiteChance = GENERATION.base.dynamite + progress * 0.018;
+    const slimeChance = GENERATION.base.slime;
     const oreChance = GENERATION.base.ore + progress * 0.045;
     const roll = this.random.next();
     let kind = "normal";
@@ -64,7 +65,10 @@ export class MineGenerator {
     } else if (roll < forgeChance + dynamiteChance && row > 3) {
       kind = "dynamite";
       type = "dynamite";
-    } else if (roll < forgeChance + dynamiteChance + oreChance) {
+    } else if (roll < forgeChance + dynamiteChance + slimeChance && row >= SLIME.startDepth) {
+      kind = "slime";
+      type = "slime";
+    } else if (roll < forgeChance + dynamiteChance + slimeChance + oreChance) {
       kind = "ore";
       type = this.pickOre(depth);
     }

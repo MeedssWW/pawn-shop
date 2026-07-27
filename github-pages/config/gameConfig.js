@@ -36,10 +36,26 @@ export const ORES = Object.freeze({
 });
 
 export const GENERATION = Object.freeze({
-  base: { normal: 0.68, ore: 0.23, dynamite: 0.06, forge: 0.03 },
+  base: { normal: 0.64, ore: 0.23, dynamite: 0.06, forge: 0.03, slime: 0.04 },
   forgeUpgradeStep: 0.0025,
   forgeMax: 0.045,
   depthScale: 280,
+});
+
+export const SLIME = Object.freeze({
+  startDepth: 6,
+  restitution: 1.42,
+  minimumBounce: 390,
+  horizontalKick: 125,
+  cooldown: 0.16,
+  color: "#35e698",
+  glow: "#8dffd0",
+});
+
+export const CRITICAL = Object.freeze({
+  chance: 0.02,
+  duration: 1.18,
+  blastAt: 0.72,
 });
 
 export const BIOMES = Object.freeze([

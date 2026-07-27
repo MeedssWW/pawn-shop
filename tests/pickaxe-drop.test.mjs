@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
-import { BLOCKS, ORES, PICKAXES, biomeAtDepth, dynamiteRadius, upgradeCost } from "../github-pages/config/gameConfig.js";
+import { BLOCKS, CRITICAL, GENERATION, ORES, PICKAXES, SLIME, biomeAtDepth, dynamiteRadius, upgradeCost } from "../github-pages/config/gameConfig.js";
+import { GameEngine } from "../github-pages/core/GameEngine.js";
 import { MineGenerator } from "../github-pages/systems/MineGenerator.js";
 import { SaveManager, SAVE_KEY } from "../github-pages/systems/SaveManager.js";
 
@@ -20,6 +21,9 @@ test("ships the five configured pickaxes and complete resource balance", () => {
   assert.equal(dynamiteRadius(2), 2);
   assert.equal(dynamiteRadius(3), 3);
   assert.ok(upgradeCost("durability", 1) > upgradeCost("durability", 0));
+  assert.equal(CRITICAL.chance, 0.02);
+  assert.equal(GENERATION.base.slime, 0.04);
+  assert.ok(SLIME.minimumBounce > 300);
 });
 
 test("generates mine sections on demand with specials and deeper materials", () => {
@@ -27,7 +31,7 @@ test("generates mine sections on demand with specials and deeper materials", () 
   mine.generateUntil(300);
   assert.ok(mine.blocks.size > 1500);
   const kinds = new Set([...mine.blocks.values()].map(({ kind }) => kind));
-  assert.deepEqual(kinds, new Set(["normal", "ore", "dynamite", "forge"]));
+  assert.deepEqual(kinds, new Set(["normal", "ore", "dynamite", "forge", "slime"]));
   const deepTypes = new Set([...mine.blocks.values()].filter(({ row }) => row > 250).map(({ type }) => type));
   assert.ok(deepTypes.has("obsidian"));
   assert.ok(deepTypes.has("crystal") || deepTypes.has("rainbow"));
@@ -47,6 +51,9 @@ test("supports deterministic chain-reaction neighborhoods", () => {
   assert.ok(neighborhood.includes(second));
   assert.ok(neighborhood.includes(ore));
   assert.equal(ore.reward, 15);
+  const slime = mine.injectBlock(12, 5, "slime");
+  assert.equal(slime.damage, 0);
+  assert.equal(slime.kind, "slime");
 });
 
 test("recovers safely from corrupt saves and persists upgrades", () => {
@@ -100,4 +107,86 @@ test("uses semantic icons for every permanent upgrade", async () => {
   assert.match(css, /\.upgrade-dynamite \.upgrade-icon \{ background-position:-163\.8px -161\.1px; \}/);
   assert.match(css, /\.upgrade-luckyStart \.upgrade-icon \{ background-position:-2\.6px -162\.4px; \}/);
   assert.match(css, /\.upgrade-secondWind \.upgrade-icon \{ background-position:-58\.6px -109\.2px; \}/);
+});
+
+test("implements indestructible slime rebounds and the full-screen critical event", async () => {
+  const engineSource = await readFile(new URL("../github-pages/core/GameEngine.js", import.meta.url), "utf8");
+  const audioSource = await readFile(new URL("../github-pages/systems/AudioManager.js", import.meta.url), "utf8");
+  const html = await readFile(new URL("../github-pages/index.html", import.meta.url), "utf8");
+  assert.match(engineSource, /block\.kind === "slime"/);
+  assert.match(engineSource, /bounceOffSlime\(block, collision\)/);
+  assert.match(engineSource, /if \(block\.kind === "slime"\) continue;/);
+  assert.match(engineSource, /Math\.random\(\) < CRITICAL\.chance/);
+  assert.match(engineSource, /visibleBlocks\(this\.cameraY, this\.viewportHeight\)/);
+  assert.match(engineSource, /this\.collectOre\(block, true\)/);
+  assert.match(engineSource, /this\.activateForge\(block\)/);
+  assert.match(engineSource, /this\.state = "critical"/);
+  assert.match(audioSource, /slime:/);
+  assert.match(audioSource, /criticalBlast:/);
+  assert.match(html, /id="critical-flash"/);
+  assert.match(html, />CRITICAL</);
+});
+
+test("critical blast collects ores, activates forges and removes every visible block", () => {
+  const generator = new MineGenerator({ seed: 7 });
+  generator.injectBlock(2, 0, "normal", "dirt");
+  generator.injectBlock(2, 1, "ore", "goldOre");
+  generator.injectBlock(2, 2, "forge");
+  generator.injectBlock(2, 3, "dynamite");
+  generator.injectBlock(2, 4, "slime");
+  const played = [];
+  const engine = Object.assign(Object.create(GameEngine.prototype), {
+    generator,
+    cameraY: 0,
+    viewportHeight: 300,
+    pickaxe: { x: 210, y: 90, tier: 0, hp: 50, maxHp: 50 },
+    run: { coins: 0, blocks: 0, ores: 0, gold: 0, forges: 0, dynamites: 0, maxTier: 0 },
+    save: { data: { upgrades: { durability: 0, oreValue: 0, dynamite: 1 } } },
+    ui: { showUpgrade() {} },
+    audio: { play(name) { played.push(name); } },
+    particles: [],
+    particlePool: [],
+    floaters: [],
+    shockwaves: [],
+    flash: 0,
+    shake: 0,
+    slowMotion: 0,
+  });
+  engine.resolveCritical();
+  assert.equal(generator.blocks.size, 0);
+  assert.equal(engine.run.blocks, 5);
+  assert.equal(engine.run.ores, 1);
+  assert.equal(engine.run.gold, 1);
+  assert.equal(engine.run.forges, 1);
+  assert.equal(engine.run.dynamites, 1);
+  assert.equal(engine.run.coins, 15);
+  assert.equal(engine.pickaxe.tier, 1);
+  assert.ok(played.includes("criticalBlast"));
+});
+
+test("slime launches the pickaxe upward without removing or damaging the block", () => {
+  const generator = new MineGenerator({ seed: 8 });
+  const slime = generator.injectBlock(3, 4, "slime");
+  const engine = Object.assign(Object.create(GameEngine.prototype), {
+    generator,
+    time: 4,
+    pickaxe: {
+      x: slime.x + 18,
+      y: slime.y - 8,
+      vx: 20,
+      vy: 420,
+      spin: 0,
+      slimeCooldown: 0,
+    },
+    audio: { play() {} },
+    shockwaves: [],
+    particles: [],
+    particlePool: [],
+    shake: 0,
+  });
+  engine.bounceOffSlime(slime, { normalX: 0, normalY: -1 });
+  assert.ok(engine.pickaxe.vy <= -SLIME.minimumBounce);
+  assert.ok(Math.abs(engine.pickaxe.vx) >= 55);
+  assert.equal(generator.get(3, 4), slime);
+  assert.equal(slime.damage, 0);
 });

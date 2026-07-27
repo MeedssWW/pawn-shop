@@ -70,6 +70,8 @@ if (debugParams.has("debug")) {
     startRun: () => engine.start(),
     forceForge: () => engine.debugForceForge(),
     forceDynamiteChain: () => engine.debugForceDynamiteChain(),
+    forceSlime: () => engine.debugForceSlime(),
+    forceCritical: () => engine.debugForceCritical(),
     forceBreak: () => engine.debugForceBreak(),
     setTier: (tier) => {
       if (!engine.pickaxe || !engine.run) return false;
@@ -105,6 +107,8 @@ if (debugParams.has("debug")) {
     const event = debugParams.get("event");
     if (event === "forge") setTimeout(() => engine.debugForceForge(), 120);
     if (event === "chain") setTimeout(() => engine.debugForceDynamiteChain(), 120);
+    if (event === "slime") setTimeout(() => engine.debugForceSlime(), 120);
+    if (event === "critical") setTimeout(() => engine.debugForceCritical(), 260);
     if (event === "break") setTimeout(() => engine.debugForceBreak(), 350);
   }
 }

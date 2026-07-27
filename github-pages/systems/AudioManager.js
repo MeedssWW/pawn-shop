@@ -61,6 +61,23 @@ export class AudioManager {
       ore: () => { this.tone(660, 0.1, "sine", 0.09, 260); this.tone(920, 0.12, "sine", 0.05, 180); },
       explosion: () => { this.noise(0.38, 0.18); this.tone(85, 0.32, "sawtooth", 0.13, -40); },
       chain: () => { this.tone(260, 0.16, "square", 0.1, 280); this.noise(0.25, 0.12); },
+      slime: () => {
+        this.tone(145, 0.22, "sine", 0.13, 420);
+        this.tone(260, 0.12, "triangle", 0.06, 190);
+      },
+      critical: () => {
+        this.tone(95, 0.42, "sawtooth", 0.12, 260);
+        [440, 660, 880].forEach((frequency, index) => {
+          setTimeout(() => this.tone(frequency, 0.2, "square", 0.08, 120), 55 + index * 55);
+        });
+      },
+      criticalBlast: () => {
+        this.noise(0.46, 0.2);
+        this.tone(72, 0.42, "sawtooth", 0.15, -30);
+        [760, 940, 1180].forEach((frequency, index) => {
+          setTimeout(() => this.tone(frequency, 0.28, "sine", 0.08), index * 42);
+        });
+      },
       upgrade: () => [420, 590, 820].forEach((frequency, index) => setTimeout(() => this.tone(frequency, 0.22, "sine", 0.11, 100), index * 80)),
       snap: () => { this.noise(0.2, 0.13); this.tone(180, 0.3, "square", 0.11, -120); },
       reward: () => [720, 880, 1080].forEach((frequency, index) => setTimeout(() => this.tone(frequency, 0.16, "sine", 0.08), index * 55)),

@@ -1,4 +1,4 @@
-import { BIOMES, BLOCKS, GAME, ORES, PICKAXES, biomeAtDepth, dynamiteRadius } from "../config/gameConfig.js";
+import { BIOMES, BLOCKS, CRITICAL, GAME, ORES, PICKAXES, SLIME, biomeAtDepth, dynamiteRadius } from "../config/gameConfig.js";
 import { MineGenerator } from "../systems/MineGenerator.js";
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -52,6 +52,7 @@ export class GameEngine {
     this.floaters = [];
     this.shockwaves = [];
     this.pendingExplosions = [];
+    this.criticalEvent = null;
     this.shake = 0;
     this.flash = 0;
     this.slowMotion = 0;
@@ -95,6 +96,7 @@ export class GameEngine {
       hp: baseHp,
       maxHp: baseHp,
       alive: true,
+      slimeCooldown: 0,
     };
     this.run = {
       tier,
@@ -108,6 +110,7 @@ export class GameEngine {
       forges: 0,
       dynamites: 0,
       chains: 0,
+      criticals: 0,
       maxTier: tier,
       revived: false,
       doubled: false,
@@ -118,10 +121,12 @@ export class GameEngine {
     this.lastBiome = BIOMES[0].id;
     this.result = null;
     this.pendingExplosions.length = 0;
+    this.criticalEvent = null;
     this.particles.length = 0;
     this.floaters.length = 0;
     this.shockwaves.length = 0;
     this.ui.setSpeed(1);
+    this.ui.hideCritical();
     this.ui.showGame();
     this.ui.updateHud(this.run);
     this.audio.startMusic();
@@ -137,6 +142,7 @@ export class GameEngine {
       delta *= 0.28;
     }
     if (this.state === "playing") this.update(delta);
+    else if (this.state === "critical") this.updateCritical(rawDelta);
     else this.updateAmbient(rawDelta);
     this.render();
     requestAnimationFrame((time) => this.frame(time));
@@ -145,6 +151,7 @@ export class GameEngine {
   update(delta) {
     const pickaxe = this.pickaxe;
     if (!pickaxe?.alive) return;
+    pickaxe.slimeCooldown = Math.max(0, pickaxe.slimeCooldown - delta);
     pickaxe.vy = Math.min(GAME.maxFallSpeed, pickaxe.vy + GAME.gravity * delta);
     pickaxe.previousX = pickaxe.x;
     pickaxe.previousY = pickaxe.y;
@@ -232,6 +239,15 @@ export class GameEngine {
   }
 
   hitBlock(block, collision) {
+    if (block.kind === "slime" && this.pickaxe.slimeCooldown > 0) return;
+    if (Math.random() < CRITICAL.chance) {
+      this.startCritical(block);
+      return;
+    }
+    if (block.kind === "slime") {
+      this.bounceOffSlime(block, collision);
+      return;
+    }
     if (!this.generator.removeBlock(block)) return;
     const pickaxe = this.pickaxe;
     this.run.blocks += 1;
@@ -289,6 +305,124 @@ export class GameEngine {
     if (block.kind === "ore") this.collectOre(block);
     this.damagePickaxe(block.damage);
     this.generator.release(block);
+  }
+
+  bounceOffSlime(block, collision) {
+    const pickaxe = this.pickaxe;
+    if (pickaxe.slimeCooldown > 0) return;
+    const { normalX, normalY } = collision;
+    const normalSpeed = pickaxe.vx * normalX + pickaxe.vy * normalY;
+    if (normalSpeed < 0) {
+      pickaxe.vx -= (1 + SLIME.restitution) * normalSpeed * normalX;
+      pickaxe.vy -= (1 + SLIME.restitution) * normalSpeed * normalY;
+    }
+    if (normalY < -0.45) {
+      pickaxe.vy = Math.min(pickaxe.vy, -SLIME.minimumBounce);
+      const direction = Math.sign(pickaxe.x - (block.x + GAME.blockSize / 2))
+        || (Math.random() < 0.5 ? -1 : 1);
+      pickaxe.vx += direction * (SLIME.horizontalKick * (0.7 + Math.random() * 0.6));
+    } else {
+      pickaxe.vx += normalX * SLIME.horizontalKick;
+      pickaxe.vy = Math.min(pickaxe.vy, -SLIME.minimumBounce * 0.42);
+    }
+    pickaxe.vx = clamp(pickaxe.vx, -310, 310);
+    pickaxe.vy = clamp(pickaxe.vy, -540, GAME.maxFallSpeed);
+    pickaxe.x = clamp(
+      pickaxe.x + normalX * 6,
+      GAME.collisionRadius + 7,
+      GAME.width - GAME.collisionRadius - 7,
+    );
+    pickaxe.y = Math.max(GAME.collisionRadius, pickaxe.y + normalY * 6);
+    pickaxe.spin = clamp(pickaxe.spin + (Math.random() - 0.5) * 4.2, -5.2, 5.2);
+    pickaxe.slimeCooldown = SLIME.cooldown;
+    block.bounceAt = this.time;
+    const x = block.x + GAME.blockSize / 2;
+    const y = block.y + GAME.blockSize / 2;
+    this.shockwaves.push({ x, y, life: 0.38, maxLife: 0.38, radius: 7, color: SLIME.glow });
+    this.spawnBurst(x, y, SLIME.glow, 12);
+    this.shake = Math.max(this.shake, 3.5);
+    this.audio.play("slime");
+  }
+
+  startCritical(sourceBlock) {
+    if (this.state !== "playing" || this.criticalEvent) return;
+    const pickaxe = this.pickaxe;
+    this.state = "critical";
+    this.criticalEvent = {
+      timer: CRITICAL.duration,
+      resolved: false,
+      sourceBlockId: sourceBlock.id,
+      vx: pickaxe.vx,
+      vy: pickaxe.vy,
+    };
+    pickaxe.vx = 0;
+    pickaxe.vy = 0;
+    this.run.criticals += 1;
+    this.flash = Math.max(this.flash, 1);
+    this.shake = Math.max(this.shake, 8);
+    this.spawnBurst(pickaxe.x, pickaxe.y, "#fff0a3", 26);
+    this.audio.play("critical");
+    this.ui.showCritical();
+  }
+
+  updateCritical(delta) {
+    if (!this.criticalEvent) {
+      this.state = "playing";
+      return;
+    }
+    this.updateEffects(delta);
+    this.criticalEvent.timer -= delta;
+    if (!this.criticalEvent.resolved && this.criticalEvent.timer <= CRITICAL.blastAt) {
+      this.criticalEvent.resolved = true;
+      this.resolveCritical();
+    }
+    if (this.criticalEvent.timer > 0) return;
+    const event = this.criticalEvent;
+    this.criticalEvent = null;
+    this.pickaxe.vx = clamp(event.vx * 0.55 + (Math.random() - 0.5) * 70, -230, 230);
+    this.pickaxe.vy = clamp(Math.max(120, event.vy * 0.55), 120, 310);
+    this.pickaxe.spin = clamp(this.pickaxe.spin + (Math.random() - 0.5) * 2.8, -4.8, 4.8);
+    this.state = "playing";
+    this.ui.hideCritical();
+  }
+
+  resolveCritical() {
+    const minY = this.cameraY;
+    const maxY = this.cameraY + this.viewportHeight;
+    const visible = this.generator.visibleBlocks(this.cameraY, this.viewportHeight)
+      .filter((block) => block.y + GAME.blockSize >= minY && block.y <= maxY)
+      .sort((first, second) => first.row - second.row || first.column - second.column);
+    let destroyed = 0;
+    let reward = 0;
+    let dynamites = 0;
+    for (const block of visible) {
+      if (!this.generator.removeBlock(block)) continue;
+      destroyed += 1;
+      this.run.blocks += 1;
+      const before = this.run.coins;
+      if (block.kind === "ore") this.collectOre(block, true);
+      if (block.kind === "forge") {
+        this.run.forges += 1;
+        this.activateForge(block);
+      }
+      if (block.kind === "dynamite") {
+        this.run.dynamites += 1;
+        dynamites += 1;
+      }
+      reward += this.run.coins - before;
+      this.spawnDebris(block, block.kind === "slime" ? 9 : 4);
+      this.generator.release(block);
+    }
+    const x = this.pickaxe.x;
+    const y = this.pickaxe.y;
+    this.shockwaves.push({ x, y, life: 0.85, maxLife: 0.85, radius: 10, color: "#fff29a" });
+    this.shockwaves.push({ x, y, life: 0.7, maxLife: 0.7, radius: 30, color: "#ff785e" });
+    this.spawnBurst(x, y, "#fff5b8", 54);
+    this.flash = Math.max(this.flash, 1.35);
+    this.shake = Math.max(this.shake, 20);
+    this.audio.play("criticalBlast");
+    if (dynamites > 0) this.audio.play("explosion");
+    this.addFloater(x, y - 26, reward ? `×${destroyed}  +${reward}` : `×${destroyed}`, "#fff29a");
   }
 
   damagePickaxe(baseDamage) {
@@ -356,6 +490,7 @@ export class GameEngine {
     let destroyed = 0;
     for (const block of blocks) {
       if (block.id === origin.id) continue;
+      if (block.kind === "slime") continue;
       if (block.kind === "dynamite" && !block.primed) {
         this.generator.removeBlock(block);
         this.run.dynamites += 1;
@@ -424,6 +559,7 @@ export class GameEngine {
 
   finishRun() {
     if (!this.run || this.state === "result") return;
+    this.ui.hideCritical();
     const depth = Math.round(this.run.depth);
     const newRecord = depth > this.save.data.bestDepth;
     this.save.data.bestDepth = Math.max(this.save.data.bestDepth, depth);
@@ -479,6 +615,7 @@ export class GameEngine {
 
   goMenu() {
     this.state = "menu";
+    this.ui.hideCritical();
     this.run = null;
     this.generator = null;
     this.audio.stopMusic();
@@ -522,7 +659,9 @@ export class GameEngine {
   }
 
   spawnDebris(block, count) {
-    const source = block.kind === "ore" ? ORES[block.type] : BLOCKS[block.type];
+    const source = block.kind === "ore" ? ORES[block.type]
+      : block.kind === "slime" ? SLIME
+        : BLOCKS[block.type];
     this.spawnBurst(block.x + GAME.blockSize / 2, block.y + GAME.blockSize / 2, source?.edge || source?.color || "#b8a28c", count);
   }
 
@@ -649,6 +788,10 @@ export class GameEngine {
       context.restore();
       return;
     }
+    if (block.kind === "slime") {
+      this.drawSlimeBlock(block);
+      return;
+    }
     this.drawAtlasTile(x, y, TILE_ATLAS.forge);
     context.save();
     context.shadowColor = "#6ffff0";
@@ -656,6 +799,42 @@ export class GameEngine {
     context.strokeStyle = `rgba(113,255,238,${0.45 + Math.sin(this.time * 6) * 0.18})`;
     context.lineWidth = 2;
     context.strokeRect(x + 2, y + 2, GAME.blockSize - 4, GAME.blockSize - 4);
+    context.restore();
+  }
+
+  drawSlimeBlock(block) {
+    const context = this.context;
+    const size = GAME.blockSize;
+    const age = this.time - (block.bounceAt || -10);
+    const impact = age >= 0 && age < 0.36 ? Math.sin(age / 0.36 * Math.PI) : 0;
+    const idle = Math.sin(this.time * 3.1 + block.id * 0.73) * 0.025;
+    const squash = idle + impact * 0.14;
+    context.save();
+    context.translate(block.x + size / 2, block.y + size / 2);
+    context.scale(1 + squash * 0.5, 1 - squash);
+    context.translate(-size / 2, -size / 2);
+    context.fillStyle = "#0a2729";
+    context.fillRect(1, 1, size - 2, size - 2);
+    const gel = context.createLinearGradient(0, 3, 0, size - 3);
+    gel.addColorStop(0, "#8affc6");
+    gel.addColorStop(0.25, "#37e99a");
+    gel.addColorStop(0.72, "#16a774");
+    gel.addColorStop(1, "#08705c");
+    context.fillStyle = gel;
+    context.fillRect(4, 4, size - 8, size - 8);
+    context.fillStyle = "rgba(213,255,234,.78)";
+    context.fillRect(8, 8, 18, 5);
+    context.fillRect(8, 13, 7, 5);
+    context.fillStyle = "rgba(2,74,62,.65)";
+    context.fillRect(7, size - 12, size - 14, 5);
+    context.fillStyle = "rgba(220,255,240,.66)";
+    const bubbleA = 10 + (block.id * 7) % 21;
+    const bubbleB = 16 + (block.id * 11) % 19;
+    context.fillRect(bubbleA, 24, 5, 5);
+    context.fillRect(bubbleB, 34, 3, 3);
+    context.strokeStyle = `rgba(139,255,211,${0.55 + impact * 0.35})`;
+    context.lineWidth = 2;
+    context.strokeRect(3, 3, size - 6, size - 6);
     context.restore();
   }
 
@@ -747,12 +926,14 @@ export class GameEngine {
     context.save();
     context.translate((GAME.width - GAME.columns * GAME.blockSize) / 2, -this.cameraY);
     for (const wave of this.shockwaves) {
-      context.strokeStyle = `rgba(255,226,117,${wave.life / wave.maxLife})`;
+      context.globalAlpha = clamp(wave.life / wave.maxLife, 0, 1);
+      context.strokeStyle = wave.color || "#ffe275";
       context.lineWidth = 6 * wave.life / wave.maxLife;
       context.beginPath();
       context.arc(wave.x, wave.y, wave.radius, 0, Math.PI * 2);
       context.stroke();
     }
+    context.globalAlpha = 1;
     for (const particle of this.particles) {
       context.save();
       context.globalAlpha = clamp(particle.life / particle.maxLife, 0, 1);
@@ -793,6 +974,10 @@ export class GameEngine {
       } : null,
       run: this.run ? { ...this.run } : null,
       pendingExplosions: this.pendingExplosions.length,
+      critical: this.criticalEvent ? {
+        timer: Math.round(this.criticalEvent.timer * 100) / 100,
+        resolved: this.criticalEvent.resolved,
+      } : null,
       blocks: this.generator?.blocks.size || 0,
     };
   }
@@ -813,6 +998,17 @@ export class GameEngine {
     this.debugInject("dynamite", 1, 1);
     this.debugInject("ore", 2, 0, "goldOre");
     return first;
+  }
+
+  debugForceSlime() {
+    return this.debugInject("slime", 1);
+  }
+
+  debugForceCritical() {
+    if (!this.generator || !this.pickaxe || this.state !== "playing") return null;
+    const block = this.debugInject("ore", 1, 0, "goldOre");
+    this.startCritical(block);
+    return block;
   }
 
   debugForceBreak() {
