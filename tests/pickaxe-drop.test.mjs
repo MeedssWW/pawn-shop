@@ -21,7 +21,7 @@ test("ships the five configured pickaxes and complete resource balance", () => {
   assert.equal(dynamiteRadius(2), 2);
   assert.equal(dynamiteRadius(3), 3);
   assert.ok(upgradeCost("durability", 1) > upgradeCost("durability", 0));
-  assert.equal(CRITICAL.chance, 0.02);
+  assert.equal(CRITICAL.chance, 0.006);
   assert.equal(GENERATION.base.slime, 0.04);
   assert.ok(SLIME.minimumBounce > 300);
 });
@@ -189,4 +189,14 @@ test("slime launches the pickaxe upward without removing or damaging the block",
   assert.ok(Math.abs(engine.pickaxe.vx) >= 55);
   assert.equal(generator.get(3, 4), slime);
   assert.equal(slime.damage, 0);
+});
+
+test("desktop typography, seamless slime tiles and cave backdrop remain enabled", async () => {
+  const engineSource = await readFile(new URL("../github-pages/core/GameEngine.js", import.meta.url), "utf8");
+  const css = await readFile(new URL("../github-pages/styles.css", import.meta.url), "utf8");
+  assert.match(engineSource, /renderCaveBackdrop\(current, next, blend\)/);
+  assert.match(engineSource, /fillRect\(block\.x, block\.y, size, size\)/);
+  assert.match(css, /\.mission-item strong \{ display:block;/);
+  assert.match(css, /@media \(min-width: 700px\)/);
+  assert.match(css, /\.upgrade-copy > strong \{ font-size:11\.5px;/);
 });

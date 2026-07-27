@@ -118,7 +118,7 @@ button { color: inherit; cursor: pointer; border: 0; }
   background: rgba(15,18,31,.88); box-shadow: 0 12px 30px rgba(0,0,0,.25);
 }
 .balance-chip small { grid-column: 1/3; font-size: 8px; letter-spacing: .18em; color: var(--muted); }
-.balance-chip strong { font-family: "Russo One"; font-size: 18px; }
+.balance-chip strong { font-family: "Russo One", system-ui, sans-serif; font-size: 18px; }
 .balance-chip .ui-icon { width: 27px; height: 27px; }
 
 .hero-copy { margin-top: clamp(68px, 13vh, 120px); text-align: center; text-shadow: 0 4px 20px #060712; }
@@ -207,7 +207,7 @@ button { color: inherit; cursor: pointer; border: 0; }
   box-shadow: 0 28px 70px rgba(0,0,0,.55);
 }
 .result-card > small, .compact-card > small { color: var(--cyan); letter-spacing: .19em; font-size: 9px; font-weight: 800; }
-.result-card h2, .compact-card h2 { margin: 7px 0 16px; font: 900 25px "Arial Black", Impact, sans-serif; }
+.result-card h2, .compact-card h2 { margin: 7px 0 16px; font: 900 25px/1.05 system-ui, sans-serif; }
 .result-depth { display: grid; place-items: center; padding: 13px; border-radius: 17px; background: rgba(92,229,229,.07); border: 1px solid rgba(92,229,229,.2); }
 .result-depth span, .result-tier small, .reward-total span { color: var(--muted); font-size: 8px; letter-spacing: .12em; }
 .result-depth strong { font: 900 34px "Arial Black", Impact, sans-serif; color: var(--cyan); }
@@ -248,7 +248,7 @@ button { color: inherit; cursor: pointer; border: 0; }
 .modal-card header > button { width: 42px; height: 42px; display:grid; place-items:center; border-radius: 13px; background: rgba(255,255,255,.055); }
 .modal-card header > button .ui-icon { width:25px; height:25px; }
 .modal-card header small { color: var(--cyan); font-size: 8px; letter-spacing: .16em; }
-.modal-card header h2 { margin: 1px 0 0; font: 900 21px "Arial Black", Impact, sans-serif; }
+.modal-card header h2 { margin: 1px 0 0; font: 900 21px/1.05 system-ui, sans-serif; }
 .modal-balance { display:flex; align-items:center; gap:4px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 12px; color: var(--gold); font-size: 11px; }
 .modal-balance .ui-icon { width:22px; height:22px; }
 #modal-content { flex: 1; overflow: auto; padding: 14px 14px max(24px,env(safe-area-inset-bottom)); }
@@ -267,7 +267,7 @@ button { color: inherit; cursor: pointer; border: 0; }
 .workshop-pickaxe i { position:absolute; inset:13px 0 0; border-radius:50%; background:var(--cyan); opacity:.16; filter:blur(17px); z-index:-1; }
 .workshop-copy { position:relative; z-index:1; display:flex; flex-direction:column; align-self:center; }
 .workshop-copy small { color:var(--cyan); font-size:7px; letter-spacing:.14em; }
-.workshop-copy strong { margin-top:4px; font:900 19px "Arial Black",Impact,sans-serif; text-transform:uppercase; }
+.workshop-copy strong { margin-top:4px; font:900 19px/1.05 system-ui,sans-serif; text-transform:uppercase; }
 .workshop-copy p { margin:4px 0 0; color:#aeb5c5; font-size:9px; }
 .workshop-stats { grid-column:1/3; position:relative; z-index:1; display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
 .workshop-stats span { display:grid; padding:8px; border:1px solid rgba(255,255,255,.08); border-radius:11px; background:rgba(7,10,18,.52); }
@@ -330,8 +330,9 @@ button { color: inherit; cursor: pointer; border: 0; }
   display:grid; grid-template-columns:1fr auto; gap:11px; align-items:center; min-height:78px; padding:11px;
   border:1px solid var(--line); border-radius:16px; background:rgba(255,255,255,.035);
 }
-.mission-item strong { font-size:11px; }
-.mission-item small { margin-top:3px; color:var(--muted); font-size:9px; }
+.mission-item > div { min-width:0; display:grid; }
+.mission-item strong { display:block; font-size:11px; line-height:1.25; }
+.mission-item small { display:block; margin-top:3px; color:var(--muted); font-size:9px; line-height:1.3; }
 .mission-item button {
   min-width:77px; min-height:39px; padding:5px 8px; border-radius:11px; background:#f2bb42; color:#251a09; font-size:9px; font-weight:900;
 }
@@ -362,7 +363,7 @@ input[type="range"] { width:100%; accent-color:var(--cyan); }
   animation:pop-in .25s ease-out both;
 }
 .upgrade-flash { top:29%; min-width:265px; padding:15px 22px; border:1px solid rgba(92,229,229,.55); border-radius:18px; background:rgba(9,19,30,.93); box-shadow:0 0 40px rgba(92,229,229,.28); }
-.upgrade-flash small { display:block; color:var(--cyan); font:900 18px "Arial Black", Impact, sans-serif; }
+.upgrade-flash small { display:block; color:var(--cyan); font:900 18px/1 system-ui, sans-serif; }
 .upgrade-flash strong { display:block; margin-top:4px; font-size:11px; }
 .biome-label { top:19%; padding:10px 18px; border-radius:14px; background:rgba(10,12,22,.82); }
 .biome-label small { display:block; color:var(--muted); font-size:7px; letter-spacing:.17em; }
@@ -418,6 +419,33 @@ input[type="range"] { width:100%; accent-color:var(--cyan); }
 
 @media (min-width: 700px) {
   #game-shell { height: min(94vh, 900px); border:1px solid rgba(255,255,255,.12); border-radius:28px; }
+  .balance-chip small { font-size:9px; }
+  .hero-copy > small { font-size:10px; }
+  .hero-copy p { font-size:13px; }
+  .best-chip span { font-size:9px; }
+  .menu-actions > div button small { font-size:9px; }
+  .modal-card header { padding:18px 16px 14px; }
+  .modal-card header small { font-size:9px; }
+  .modal-card header h2 { font-size:24px; }
+  #modal-content { padding:16px 14px 28px; }
+  .modal-intro { font-size:12px; line-height:1.5; }
+  .workshop-copy small { font-size:8px; }
+  .workshop-copy strong { font-size:20px; }
+  .workshop-copy p { font-size:10px; line-height:1.4; }
+  .workshop-stats small { font-size:7px; }
+  .upgrade-group > header strong { font-size:10px; }
+  .upgrade-group > header small { font-size:9px; }
+  .upgrade-copy > strong { font-size:11.5px; line-height:1.25; }
+  .upgrade-copy > small { font-size:9px; line-height:1.4; }
+  .upgrade-copy > em { font-size:7px; }
+  .upgrade-item button small { font-size:7px; }
+  .upgrade-item button b { font-size:10px; }
+  .mission-item { min-height:82px; padding:13px; }
+  .mission-item strong { font-size:12.5px; }
+  .mission-item small { font-size:10px; }
+  .mission-item button { min-width:82px; font-size:10px; }
+  .settings-list label strong { font-size:13px; }
+  .settings-list label small { font-size:10px; }
 }
 @media (max-height: 690px) {
   .hero-copy { margin-top: 38px; }

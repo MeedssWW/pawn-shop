@@ -53,7 +53,7 @@ export const SLIME = Object.freeze({
 });
 
 export const CRITICAL = Object.freeze({
-  chance: 0.02,
+  chance: 0.006,
   duration: 1.18,
   blastAt: 0.72,
 });

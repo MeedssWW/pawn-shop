@@ -3,6 +3,7 @@ import { MineGenerator } from "../systems/MineGenerator.js";
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const lerp = (from, to, amount) => from + (to - from) * amount;
+const wrap = (value, size) => ((value % size) + size) % size;
 const TILE_ATLAS = Object.freeze({
   dirt: [0, 0],
   stone: [1, 0],
@@ -722,6 +723,7 @@ export class GameEngine {
     gradient.addColorStop(1, mixColor(current.background[1], next.background[1], blend));
     this.context.fillStyle = gradient;
     this.context.fillRect(-20, -20, GAME.width + 40, this.viewportHeight + 40);
+    this.renderCaveBackdrop(current, next, blend);
     this.context.globalAlpha = 0.18;
     for (let index = 0; index < 24; index += 1) {
       const x = (index * 91) % GAME.width;
@@ -730,6 +732,93 @@ export class GameEngine {
       this.context.fillRect(x, y, index % 4 === 0 ? 3 : 1.5, index % 5 === 0 ? 3 : 1.5);
     }
     this.context.globalAlpha = 1;
+  }
+
+  renderCaveBackdrop(current, next, blend) {
+    const context = this.context;
+    const height = this.viewportHeight;
+    const travel = (this.cameraY || this.menuOffset) * 0.18;
+    const accent = mixColor(current.dust, next.dust, blend);
+    context.save();
+
+    context.globalAlpha = 0.11;
+    context.fillStyle = accent;
+    for (let index = -1; index < Math.ceil(height / 104) + 2; index += 1) {
+      const y = wrap(index * 104 - travel, height + 104) - 52;
+      context.beginPath();
+      context.moveTo(0, y + 16);
+      context.lineTo(74, y + 3);
+      context.lineTo(155, y + 20);
+      context.lineTo(239, y + 7);
+      context.lineTo(332, y + 24);
+      context.lineTo(GAME.width, y + 9);
+      context.lineTo(GAME.width, y + 34);
+      context.lineTo(318, y + 43);
+      context.lineTo(218, y + 31);
+      context.lineTo(112, y + 45);
+      context.lineTo(0, y + 35);
+      context.closePath();
+      context.fill();
+    }
+
+    context.globalAlpha = 0.18;
+    context.strokeStyle = accent;
+    context.lineWidth = 1.4;
+    for (let index = 0; index < 7; index += 1) {
+      const x = 34 + index * 61 + Math.sin(index * 2.7) * 17;
+      const y = wrap(index * 137 - travel * 0.65, height + 170) - 80;
+      context.beginPath();
+      context.moveTo(x, y);
+      context.lineTo(x + 13, y + 24);
+      context.lineTo(x - 5, y + 51);
+      context.lineTo(x + 18, y + 79);
+      context.lineTo(x + 8, y + 118);
+      context.stroke();
+    }
+
+    const wallShade = current.id === "fire" ? "#2b0909"
+      : current.id === "crystal" ? "#110b27"
+        : current.id === "stone" ? "#0b1724" : "#190f13";
+    context.globalAlpha = 0.28;
+    context.fillStyle = wallShade;
+    context.beginPath();
+    context.moveTo(0, 0);
+    context.lineTo(35, 0);
+    context.lineTo(23, height * 0.18);
+    context.lineTo(43, height * 0.35);
+    context.lineTo(19, height * 0.58);
+    context.lineTo(36, height * 0.76);
+    context.lineTo(15, height);
+    context.lineTo(0, height);
+    context.closePath();
+    context.fill();
+    context.beginPath();
+    context.moveTo(GAME.width, 0);
+    context.lineTo(GAME.width - 29, 0);
+    context.lineTo(GAME.width - 17, height * 0.21);
+    context.lineTo(GAME.width - 41, height * 0.42);
+    context.lineTo(GAME.width - 20, height * 0.65);
+    context.lineTo(GAME.width - 38, height * 0.83);
+    context.lineTo(GAME.width - 16, height);
+    context.lineTo(GAME.width, height);
+    context.closePath();
+    context.fill();
+
+    context.globalAlpha = current.id === "crystal" ? 0.24 : 0.13;
+    context.fillStyle = accent;
+    context.shadowColor = accent;
+    context.shadowBlur = current.id === "crystal" ? 12 : 5;
+    for (let index = 0; index < 9; index += 1) {
+      const x = 28 + (index * 83) % (GAME.width - 56);
+      const y = wrap(index * 151 - travel * 0.8, height + 90) - 45;
+      const size = 2 + index % 3;
+      context.save();
+      context.translate(x, y);
+      context.rotate(Math.PI / 4);
+      context.fillRect(-size, -size, size * 2, size * 2);
+      context.restore();
+    }
+    context.restore();
   }
 
   renderMenuBackdrop() {
@@ -810,18 +899,25 @@ export class GameEngine {
     const idle = Math.sin(this.time * 3.1 + block.id * 0.73) * 0.025;
     const squash = idle + impact * 0.14;
     context.save();
+    const border = context.createLinearGradient(block.x, block.y, block.x, block.y + size);
+    border.addColorStop(0, "#24986e");
+    border.addColorStop(1, "#075344");
+    context.fillStyle = border;
+    context.fillRect(block.x, block.y, size, size);
+    context.fillStyle = "rgba(139,255,211,.2)";
+    context.fillRect(block.x, block.y, size, 2);
+    context.fillStyle = "rgba(0,29,28,.42)";
+    context.fillRect(block.x, block.y + size - 2, size, 2);
     context.translate(block.x + size / 2, block.y + size / 2);
     context.scale(1 + squash * 0.5, 1 - squash);
     context.translate(-size / 2, -size / 2);
-    context.fillStyle = "#0a2729";
-    context.fillRect(1, 1, size - 2, size - 2);
     const gel = context.createLinearGradient(0, 3, 0, size - 3);
     gel.addColorStop(0, "#8affc6");
     gel.addColorStop(0.25, "#37e99a");
     gel.addColorStop(0.72, "#16a774");
     gel.addColorStop(1, "#08705c");
     context.fillStyle = gel;
-    context.fillRect(4, 4, size - 8, size - 8);
+    context.fillRect(2, 2, size - 4, size - 4);
     context.fillStyle = "rgba(213,255,234,.78)";
     context.fillRect(8, 8, 18, 5);
     context.fillRect(8, 13, 7, 5);
@@ -834,7 +930,7 @@ export class GameEngine {
     context.fillRect(bubbleB, 34, 3, 3);
     context.strokeStyle = `rgba(139,255,211,${0.55 + impact * 0.35})`;
     context.lineWidth = 2;
-    context.strokeRect(3, 3, size - 6, size - 6);
+    context.strokeRect(2, 2, size - 4, size - 4);
     context.restore();
   }
 
