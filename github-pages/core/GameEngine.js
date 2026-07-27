@@ -87,9 +87,10 @@ export class GameEngine {
       y: GAME.blockSize * 0.9,
       vx: (Math.random() - 0.5) * 110,
       vy: 80,
-      rotation: -0.08,
-      spin: 0,
-      bounceDirection: 0,
+      previousX: GAME.width / 2,
+      previousY: GAME.blockSize * 0.9,
+      rotation: 0,
+      spin: (Math.random() - 0.5) * 0.7,
       tier,
       hp: baseHp,
       maxHp: baseHp,
@@ -145,16 +146,19 @@ export class GameEngine {
     const pickaxe = this.pickaxe;
     if (!pickaxe?.alive) return;
     pickaxe.vy = Math.min(GAME.maxFallSpeed, pickaxe.vy + GAME.gravity * delta);
+    pickaxe.previousX = pickaxe.x;
+    pickaxe.previousY = pickaxe.y;
     pickaxe.x += pickaxe.vx * delta;
     pickaxe.y += pickaxe.vy * delta;
-    pickaxe.rotation = clamp(pickaxe.rotation + pickaxe.spin * delta, -0.38, 0.38);
-    pickaxe.spin *= Math.pow(0.06, delta);
+    pickaxe.rotation += pickaxe.spin * delta;
+    if (pickaxe.rotation > Math.PI) pickaxe.rotation -= Math.PI * 2;
+    if (pickaxe.rotation < -Math.PI) pickaxe.rotation += Math.PI * 2;
+    pickaxe.spin *= Math.pow(0.48, delta);
     const margin = GAME.collisionRadius + 7;
     if (pickaxe.x < margin || pickaxe.x > GAME.width - margin) {
       pickaxe.x = clamp(pickaxe.x, margin, GAME.width - margin);
-      pickaxe.vx *= -0.82;
-      pickaxe.bounceDirection = Math.sign(pickaxe.vx);
-      pickaxe.spin = Math.sign(pickaxe.vx) * Math.max(0.65, Math.abs(pickaxe.spin));
+      pickaxe.vx *= -0.78;
+      pickaxe.spin = clamp(pickaxe.spin + Math.sign(pickaxe.vx) * 1.15, -4.8, 4.8);
       this.shake = Math.max(this.shake, 1.4);
     }
     const targetCamera = Math.max(0, pickaxe.y - this.viewportHeight * 0.38);
@@ -189,39 +193,87 @@ export class GameEngine {
     }
     candidates.sort((a, b) => a.y - b.y);
     for (const block of candidates) {
-      const centerX = block.x + GAME.blockSize / 2;
-      const centerY = block.y + GAME.blockSize / 2;
-      if (Math.abs(pickaxe.x - centerX) > GAME.blockSize * 0.59) continue;
-      if (Math.abs(pickaxe.y - centerY) > GAME.blockSize * 0.52) continue;
-      this.hitBlock(block);
+      const collision = this.blockCollision(block);
+      if (!collision) continue;
+      this.hitBlock(block, collision);
       break;
     }
   }
 
-  hitBlock(block) {
+  blockCollision(block) {
+    const pickaxe = this.pickaxe;
+    const radius = GAME.collisionRadius;
+    const left = block.x;
+    const right = block.x + GAME.blockSize;
+    const top = block.y;
+    const bottom = block.y + GAME.blockSize;
+    const closestX = clamp(pickaxe.x, left, right);
+    const closestY = clamp(pickaxe.y, top, bottom);
+    const offsetX = pickaxe.x - closestX;
+    const offsetY = pickaxe.y - closestY;
+    const distanceSquared = offsetX * offsetX + offsetY * offsetY;
+    if (distanceSquared > radius * radius) return null;
+    if (distanceSquared > 0.0001) {
+      const distance = Math.sqrt(distanceSquared);
+      return { normalX: offsetX / distance, normalY: offsetY / distance };
+    }
+    if (pickaxe.previousY + radius <= top) return { normalX: 0, normalY: -1 };
+    if (pickaxe.previousY - radius >= bottom) return { normalX: 0, normalY: 1 };
+    if (pickaxe.previousX + radius <= left) return { normalX: -1, normalY: 0 };
+    if (pickaxe.previousX - radius >= right) return { normalX: 1, normalY: 0 };
+    const faces = [
+      { distance: Math.abs(pickaxe.x - left), normalX: -1, normalY: 0 },
+      { distance: Math.abs(right - pickaxe.x), normalX: 1, normalY: 0 },
+      { distance: Math.abs(pickaxe.y - top), normalX: 0, normalY: -1 },
+      { distance: Math.abs(bottom - pickaxe.y), normalX: 0, normalY: 1 },
+    ];
+    faces.sort((first, second) => first.distance - second.distance);
+    return { normalX: faces[0].normalX, normalY: faces[0].normalY };
+  }
+
+  hitBlock(block, collision) {
     if (!this.generator.removeBlock(block)) return;
     const pickaxe = this.pickaxe;
     this.run.blocks += 1;
-    pickaxe.y = Math.max(pickaxe.y, block.y + GAME.blockSize * 0.56);
-    pickaxe.vy = Math.max(115, pickaxe.vy * 0.58);
-    let bounceDirection = pickaxe.bounceDirection
-      || Math.sign(pickaxe.vx)
-      || (Math.random() < 0.5 ? -1 : 1);
-    if (Math.random() < 0.3) bounceDirection *= -1;
-    if (pickaxe.x < GAME.blockSize * 1.2) bounceDirection = 1;
-    if (pickaxe.x > GAME.width - GAME.blockSize * 1.2) bounceDirection = -1;
-    pickaxe.bounceDirection = bounceDirection;
-    const bounceImpulse = 150 + Math.random() * 65;
-    const centerBias = (GAME.width / 2 - pickaxe.x) * 0.018;
-    pickaxe.vx = clamp(bounceDirection * bounceImpulse + pickaxe.vx * 0.12 + centerBias, -220, 220);
+    const { normalX, normalY } = collision;
+    const incomingSpeed = Math.hypot(pickaxe.vx, pickaxe.vy);
+    const normalSpeed = pickaxe.vx * normalX + pickaxe.vy * normalY;
+    if (normalSpeed < 0) {
+      const restitution = Math.abs(normalY) > 0.62 ? 0.66 : 0.74;
+      pickaxe.vx -= (1 + restitution) * normalSpeed * normalX;
+      pickaxe.vy -= (1 + restitution) * normalSpeed * normalY;
+    }
+    const tangentX = -normalY;
+    const tangentY = normalX;
+    const blockCenterX = block.x + GAME.blockSize / 2;
+    const blockCenterY = block.y + GAME.blockSize / 2;
+    const contactOffset = clamp(
+      ((pickaxe.x - blockCenterX) * tangentX + (pickaxe.y - blockCenterY) * tangentY)
+        / (GAME.blockSize / 2),
+      -1,
+      1,
+    );
+    const tangentKick = contactOffset * 28 + (Math.random() - 0.5) * 22;
+    pickaxe.vx += tangentX * tangentKick;
+    pickaxe.vy += tangentY * tangentKick;
+    if (normalY < -0.62 && Math.abs(pickaxe.vx) < 72) {
+      const fallbackDirection = contactOffset || Math.sign(pickaxe.previousX - blockCenterX)
+        || (Math.random() < 0.5 ? -1 : 1);
+      pickaxe.vx = Math.sign(fallbackDirection) * (72 + Math.random() * 48);
+    }
+    pickaxe.vx = clamp(pickaxe.vx, -250, 250);
+    pickaxe.vy = clamp(pickaxe.vy, -300, GAME.maxFallSpeed);
     pickaxe.x = clamp(
-      pickaxe.x + bounceDirection * 3.5,
+      pickaxe.x + normalX * 2.2,
       GAME.collisionRadius + 7,
       GAME.width - GAME.collisionRadius - 7,
     );
-    pickaxe.spin = bounceDirection * (0.7 + Math.random() * 0.85);
+    pickaxe.y = Math.max(GAME.collisionRadius, pickaxe.y + normalY * 2.2);
+    const tangentialSpeed = pickaxe.vx * tangentX + pickaxe.vy * tangentY;
+    const impactTorque = -contactOffset * 2.6 + tangentialSpeed * 0.008;
+    pickaxe.spin = clamp(pickaxe.spin * 0.38 + impactTorque, -4.8, 4.8);
     this.shake = Math.max(this.shake, block.damage >= 7 ? 4 : 1.8);
-    this.spawnDebris(block, 7);
+    this.spawnDebris(block, incomingSpeed > 360 ? 10 : 7);
     if (block.kind === "dynamite") {
       this.run.dynamites += 1;
       this.primeExplosion(block, false);
@@ -728,7 +780,17 @@ export class GameEngine {
   debugSnapshot() {
     return {
       state: this.state,
-      pickaxe: this.pickaxe ? { tier: this.pickaxe.tier, hp: this.pickaxe.hp, maxHp: this.pickaxe.maxHp } : null,
+      pickaxe: this.pickaxe ? {
+        tier: this.pickaxe.tier,
+        hp: this.pickaxe.hp,
+        maxHp: this.pickaxe.maxHp,
+        x: Math.round(this.pickaxe.x * 10) / 10,
+        y: Math.round(this.pickaxe.y * 10) / 10,
+        vx: Math.round(this.pickaxe.vx * 10) / 10,
+        vy: Math.round(this.pickaxe.vy * 10) / 10,
+        rotation: Math.round(this.pickaxe.rotation * 100) / 100,
+        spin: Math.round(this.pickaxe.spin * 100) / 100,
+      } : null,
       run: this.run ? { ...this.run } : null,
       pendingExplosions: this.pendingExplosions.length,
       blocks: this.generator?.blocks.size || 0,

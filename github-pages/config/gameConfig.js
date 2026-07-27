@@ -5,8 +5,8 @@ export const GAME = Object.freeze({
   chunkRows: 14,
   generateAhead: 34,
   removeBehind: 18,
-  gravity: 920,
-  maxFallSpeed: 560,
+  gravity: 720,
+  maxFallSpeed: 500,
   collisionRadius: 13,
   casesForInterstitial: 3,
 });

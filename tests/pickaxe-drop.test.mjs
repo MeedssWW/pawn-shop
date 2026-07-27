@@ -78,13 +78,14 @@ test("production HTML contains the canvas, mobile controls, Yandex SDK and modul
   await access(new URL("../github-pages/public/assets/ui-icon-atlas.png", import.meta.url));
 });
 
-test("keeps collisions moving down while restoring visible side ricochets", async () => {
+test("uses collision normals for physical ricochets without position teleports", async () => {
   const engineSource = await readFile(new URL("../github-pages/core/GameEngine.js", import.meta.url), "utf8");
   assert.doesNotMatch(engineSource, /pickaxe\.y = block\.y - 1/);
-  assert.match(engineSource, /pickaxe\.y = Math\.max\(pickaxe\.y/);
-  assert.match(engineSource, /bounceDirection \* bounceImpulse/);
-  assert.match(engineSource, /-220, 220/);
-  assert.match(engineSource, /pickaxe\.bounceDirection = bounceDirection/);
-  assert.match(engineSource, /pickaxe\.rotation = clamp/);
-  assert.match(engineSource, /-0\.38, 0\.38/);
+  assert.doesNotMatch(engineSource, /bounceDirection \* bounceImpulse/);
+  assert.match(engineSource, /blockCollision\(block\)/);
+  assert.match(engineSource, /normalSpeed \* normalX/);
+  assert.match(engineSource, /normalSpeed \* normalY/);
+  assert.match(engineSource, /const restitution =/);
+  assert.match(engineSource, /pickaxe\.vy = clamp\(pickaxe\.vy, -300/);
+  assert.match(engineSource, /const impactTorque =/);
 });
