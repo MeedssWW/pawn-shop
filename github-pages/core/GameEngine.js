@@ -85,10 +85,11 @@ export class GameEngine {
     this.pickaxe = {
       x: GAME.width / 2,
       y: GAME.blockSize * 0.9,
-      vx: (Math.random() - 0.5) * 72,
+      vx: (Math.random() - 0.5) * 110,
       vy: 80,
       rotation: -0.08,
       spin: 0,
+      bounceDirection: 0,
       tier,
       hp: baseHp,
       maxHp: baseHp,
@@ -151,8 +152,10 @@ export class GameEngine {
     const margin = GAME.collisionRadius + 7;
     if (pickaxe.x < margin || pickaxe.x > GAME.width - margin) {
       pickaxe.x = clamp(pickaxe.x, margin, GAME.width - margin);
-      pickaxe.vx *= -0.55;
-      pickaxe.spin *= -0.35;
+      pickaxe.vx *= -0.82;
+      pickaxe.bounceDirection = Math.sign(pickaxe.vx);
+      pickaxe.spin = Math.sign(pickaxe.vx) * Math.max(0.65, Math.abs(pickaxe.spin));
+      this.shake = Math.max(this.shake, 1.4);
     }
     const targetCamera = Math.max(0, pickaxe.y - this.viewportHeight * 0.38);
     this.cameraY = lerp(this.cameraY, targetCamera, Math.min(1, delta * 5.4));
@@ -201,9 +204,22 @@ export class GameEngine {
     this.run.blocks += 1;
     pickaxe.y = Math.max(pickaxe.y, block.y + GAME.blockSize * 0.56);
     pickaxe.vy = Math.max(115, pickaxe.vy * 0.58);
-    const centerBias = (GAME.width / 2 - pickaxe.x) * 0.025;
-    pickaxe.vx = clamp(pickaxe.vx * 0.45 + (Math.random() - 0.5) * 95 + centerBias, -88, 88);
-    pickaxe.spin = (Math.random() - 0.5) * 1.05;
+    let bounceDirection = pickaxe.bounceDirection
+      || Math.sign(pickaxe.vx)
+      || (Math.random() < 0.5 ? -1 : 1);
+    if (Math.random() < 0.3) bounceDirection *= -1;
+    if (pickaxe.x < GAME.blockSize * 1.2) bounceDirection = 1;
+    if (pickaxe.x > GAME.width - GAME.blockSize * 1.2) bounceDirection = -1;
+    pickaxe.bounceDirection = bounceDirection;
+    const bounceImpulse = 150 + Math.random() * 65;
+    const centerBias = (GAME.width / 2 - pickaxe.x) * 0.018;
+    pickaxe.vx = clamp(bounceDirection * bounceImpulse + pickaxe.vx * 0.12 + centerBias, -220, 220);
+    pickaxe.x = clamp(
+      pickaxe.x + bounceDirection * 3.5,
+      GAME.collisionRadius + 7,
+      GAME.width - GAME.collisionRadius - 7,
+    );
+    pickaxe.spin = bounceDirection * (0.7 + Math.random() * 0.85);
     this.shake = Math.max(this.shake, block.damage >= 7 ? 4 : 1.8);
     this.spawnDebris(block, 7);
     if (block.kind === "dynamite") {

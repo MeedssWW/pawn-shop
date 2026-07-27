@@ -78,10 +78,13 @@ test("production HTML contains the canvas, mobile controls, Yandex SDK and modul
   await access(new URL("../github-pages/public/assets/ui-icon-atlas.png", import.meta.url));
 });
 
-test("keeps pickaxe collisions moving down with restrained rotation", async () => {
+test("keeps collisions moving down while restoring visible side ricochets", async () => {
   const engineSource = await readFile(new URL("../github-pages/core/GameEngine.js", import.meta.url), "utf8");
   assert.doesNotMatch(engineSource, /pickaxe\.y = block\.y - 1/);
   assert.match(engineSource, /pickaxe\.y = Math\.max\(pickaxe\.y/);
+  assert.match(engineSource, /bounceDirection \* bounceImpulse/);
+  assert.match(engineSource, /-220, 220/);
+  assert.match(engineSource, /pickaxe\.bounceDirection = bounceDirection/);
   assert.match(engineSource, /pickaxe\.rotation = clamp/);
   assert.match(engineSource, /-0\.38, 0\.38/);
 });
