@@ -187,7 +187,7 @@ export class UIManager {
             <em>УРОВЕНЬ ${level} / ${config.max}</em>
           </div>
           <button ${maxed || !affordable ? "disabled" : ""} data-buy="${id}">
-            ${maxed ? `<b>МАКС.</b>` : `<small>УЛУЧШИТЬ</small><b>${cost.toLocaleString("ru-RU")} ◆</b>`}
+            ${maxed ? `<b>МАКС.</b>` : `<small>УЛУЧШИТЬ</small><b>${cost.toLocaleString("ru-RU")} <i class="ui-icon icon-coin"></i></b>`}
           </button>`;
         list.append(item);
       }
@@ -227,7 +227,7 @@ export class UIManager {
         <div><strong>${config.label}</strong><small>${entry.progress} / ${config.target}</small>
           <span class="mission-progress"><i style="width:${progress}%"></i></span></div>
         <button data-claim="${entry.id}" ${!ready || entry.claimed ? "disabled" : ""}>
-          ${entry.claimed ? "ПОЛУЧЕНО" : `+${config.reward} ◆`}
+          ${entry.claimed ? "ПОЛУЧЕНО" : `+${config.reward} <i class="ui-icon icon-coin"></i>`}
         </button>`;
       list.append(item);
     }
@@ -288,11 +288,12 @@ export class UIManager {
   }
 
   updateSoundButton() {
-    $("#sound-btn").textContent = this.save.data.settings.muted ? "♩̸" : "♫";
+    const icon = $("#sound-btn .ui-icon");
+    icon.className = `ui-icon ${this.save.data.settings.muted ? "icon-muted" : "icon-sound"}`;
   }
 
   setSpeed(speed) {
-    $("#speed-btn").textContent = `×${speed}`;
+    $("#speed-btn b").textContent = `×${speed}`;
   }
 
   showUpgrade(from, to, maxed = false) {

@@ -1,6 +1,7 @@
 const ASSET_FILES = Object.freeze({
   mine: "assets/mine-texture-atlas.png",
   pickaxes: "assets/pickaxe-sprites.png",
+  ui: "assets/ui-icon-atlas.png",
 });
 
 function loadImage(source) {

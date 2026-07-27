@@ -11,6 +11,7 @@ const sdk = new YandexSDK();
 const assets = await new AssetManager().load();
 document.documentElement.style.setProperty("--pickaxe-sprites", `url("${assets.urls.pickaxes}")`);
 document.documentElement.style.setProperty("--mine-atlas", `url("${assets.urls.mine}")`);
+document.documentElement.style.setProperty("--ui-icons", `url("${assets.urls.ui}")`);
 const loadingScreen = document.querySelector("#loading-screen");
 loadingScreen.classList.add("ready");
 setTimeout(() => loadingScreen.classList.add("hidden"), 280);

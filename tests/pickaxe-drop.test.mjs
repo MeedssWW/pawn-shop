@@ -75,4 +75,13 @@ test("production HTML contains the canvas, mobile controls, Yandex SDK and modul
   assert.doesNotMatch(html, /Ломбард|Minecraft/);
   await access(new URL("../github-pages/public/assets/mine-texture-atlas.png", import.meta.url));
   await access(new URL("../github-pages/public/assets/pickaxe-sprites.png", import.meta.url));
+  await access(new URL("../github-pages/public/assets/ui-icon-atlas.png", import.meta.url));
+});
+
+test("keeps pickaxe collisions moving down with restrained rotation", async () => {
+  const engineSource = await readFile(new URL("../github-pages/core/GameEngine.js", import.meta.url), "utf8");
+  assert.doesNotMatch(engineSource, /pickaxe\.y = block\.y - 1/);
+  assert.match(engineSource, /pickaxe\.y = Math\.max\(pickaxe\.y/);
+  assert.match(engineSource, /pickaxe\.rotation = clamp/);
+  assert.match(engineSource, /-0\.38, 0\.38/);
 });

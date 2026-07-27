@@ -87,8 +87,8 @@ export class GameEngine {
       y: GAME.blockSize * 0.9,
       vx: (Math.random() - 0.5) * 72,
       vy: 80,
-      rotation: -0.25,
-      spin: 0.65,
+      rotation: -0.08,
+      spin: 0,
       tier,
       hp: baseHp,
       maxHp: baseHp,
@@ -146,12 +146,13 @@ export class GameEngine {
     pickaxe.vy = Math.min(GAME.maxFallSpeed, pickaxe.vy + GAME.gravity * delta);
     pickaxe.x += pickaxe.vx * delta;
     pickaxe.y += pickaxe.vy * delta;
-    pickaxe.rotation += pickaxe.spin * delta;
+    pickaxe.rotation = clamp(pickaxe.rotation + pickaxe.spin * delta, -0.38, 0.38);
+    pickaxe.spin *= Math.pow(0.06, delta);
     const margin = GAME.collisionRadius + 7;
     if (pickaxe.x < margin || pickaxe.x > GAME.width - margin) {
       pickaxe.x = clamp(pickaxe.x, margin, GAME.width - margin);
-      pickaxe.vx *= -0.74;
-      pickaxe.spin *= -1;
+      pickaxe.vx *= -0.55;
+      pickaxe.spin *= -0.35;
     }
     const targetCamera = Math.max(0, pickaxe.y - this.viewportHeight * 0.38);
     this.cameraY = lerp(this.cameraY, targetCamera, Math.min(1, delta * 5.4));
@@ -198,11 +199,11 @@ export class GameEngine {
     if (!this.generator.removeBlock(block)) return;
     const pickaxe = this.pickaxe;
     this.run.blocks += 1;
-    pickaxe.y = block.y - 1;
-    pickaxe.vy = Math.max(65, pickaxe.vy * 0.3);
-    const centerBias = (GAME.width / 2 - pickaxe.x) * 0.035;
-    pickaxe.vx = clamp(pickaxe.vx * 0.3 + (Math.random() - 0.5) * 180 + centerBias, -125, 125);
-    pickaxe.spin = (Math.random() - 0.5) * 4.5;
+    pickaxe.y = Math.max(pickaxe.y, block.y + GAME.blockSize * 0.56);
+    pickaxe.vy = Math.max(115, pickaxe.vy * 0.58);
+    const centerBias = (GAME.width / 2 - pickaxe.x) * 0.025;
+    pickaxe.vx = clamp(pickaxe.vx * 0.45 + (Math.random() - 0.5) * 95 + centerBias, -88, 88);
+    pickaxe.spin = (Math.random() - 0.5) * 1.05;
     this.shake = Math.max(this.shake, block.damage >= 7 ? 4 : 1.8);
     this.spawnDebris(block, 7);
     if (block.kind === "dynamite") {
@@ -252,7 +253,7 @@ export class GameEngine {
     if (maxed) {
       const bonus = 150;
       this.run.coins += bonus;
-      this.addFloater(block.x + 20, block.y - 6, `+${bonus} ◆`, "#8ffcff");
+      this.addFloater(block.x + 20, block.y - 6, `+${bonus}`, "#8ffcff");
     }
     this.run.maxTier = Math.max(this.run.maxTier, pickaxe.tier);
     this.flash = 0.75;
@@ -310,7 +311,7 @@ export class GameEngine {
     this.flash = Math.max(this.flash, 0.58);
     this.shake = Math.max(this.shake, chained ? 15 : 11);
     this.audio.play(chained ? "chain" : "explosion");
-    this.addFloater(x, y - 15, reward ? `ВЗРЫВ +${reward} ◆` : `ВЗРЫВ ×${destroyed}`, "#ffd86b");
+    this.addFloater(x, y - 15, reward ? `ВЗРЫВ +${reward}` : `ВЗРЫВ ×${destroyed}`, "#ffd86b");
     this.generator.release(origin);
   }
 
