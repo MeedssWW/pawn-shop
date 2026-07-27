@@ -93,10 +93,11 @@ test("uses collision normals for physical ricochets without position teleports",
 test("uses semantic icons for every permanent upgrade", async () => {
   const css = await readFile(new URL("../github-pages/styles.css", import.meta.url), "utf8");
   assert.match(css, /\.upgrade-icon\s*\{[^}]*background-image:var\(--ui-icons\)/s);
-  assert.match(css, /\.upgrade-durability \.upgrade-icon \{ background-position:33\.333% 100%; \}/);
-  assert.match(css, /\.upgrade-handle \.upgrade-icon \{ background-position:33\.333% 0; \}/);
-  assert.match(css, /\.upgrade-oreValue \.upgrade-icon \{ background-position:0 0; \}/);
-  assert.match(css, /\.upgrade-dynamite \.upgrade-icon \{ background-position:100% 100%; \}/);
-  assert.match(css, /\.upgrade-luckyStart \.upgrade-icon \{ background-position:0 100%; \}/);
-  assert.match(css, /\.upgrade-secondWind \.upgrade-icon \{ background-position:33\.333% 66\.667%; \}/);
+  assert.match(css, /\.upgrade-icon\s*\{[^}]*background-size:224px 224px/s);
+  assert.match(css, /\.upgrade-durability \.upgrade-icon \{ background-position:-56\.9px -162\.9px; \}/);
+  assert.match(css, /\.upgrade-handle \.upgrade-icon \{ background-position:-57\.5px -3\.5px; \}/);
+  assert.match(css, /\.upgrade-oreValue \.upgrade-icon \{ background-position:-3\.2px -5\.3px; \}/);
+  assert.match(css, /\.upgrade-dynamite \.upgrade-icon \{ background-position:-163\.8px -161\.1px; \}/);
+  assert.match(css, /\.upgrade-luckyStart \.upgrade-icon \{ background-position:-2\.6px -162\.4px; \}/);
+  assert.match(css, /\.upgrade-secondWind \.upgrade-icon \{ background-position:-58\.6px -109\.2px; \}/);
 });

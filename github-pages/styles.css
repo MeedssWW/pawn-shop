@@ -298,18 +298,19 @@ button { color: inherit; cursor: pointer; border: 0; }
 .upgrade-item.affordable { border-color:rgba(255,198,74,.28); }
 .upgrade-icon {
   width:56px; height:56px; border:1px solid rgba(255,255,255,.13); border-radius:13px;
-  background-color:#111625; background-image:var(--ui-icons); background-size:400% 400%; background-repeat:no-repeat;
+  background-color:#111625; background-image:var(--ui-icons); background-size:224px 224px; background-repeat:no-repeat;
+  background-origin:border-box;
   image-rendering:pixelated; box-shadow:inset 0 0 0 3px rgba(8,10,16,.32),0 5px 13px rgba(0,0,0,.3);
 }
-.upgrade-durability .upgrade-icon { background-position:33.333% 100%; }
-.upgrade-handle .upgrade-icon { background-position:33.333% 0; }
-.upgrade-oreValue .upgrade-icon { background-position:0 0; }
-.upgrade-dynamite .upgrade-icon { background-position:100% 100%; }
+.upgrade-durability .upgrade-icon { background-position:-56.9px -162.9px; }
+.upgrade-handle .upgrade-icon { background-position:-57.5px -3.5px; }
+.upgrade-oreValue .upgrade-icon { background-position:-3.2px -5.3px; }
+.upgrade-dynamite .upgrade-icon { background-position:-163.8px -161.1px; }
 .upgrade-forgeChance .upgrade-icon {
-  background-image:var(--mine-atlas); background-position:100% 66.667%;
+  background-image:var(--mine-atlas); background-size:400% 400%; background-position:100% 66.667%;
 }
-.upgrade-luckyStart .upgrade-icon { background-position:0 100%; }
-.upgrade-secondWind .upgrade-icon { background-position:33.333% 66.667%; }
+.upgrade-luckyStart .upgrade-icon { background-position:-2.6px -162.4px; }
+.upgrade-secondWind .upgrade-icon { background-position:-58.6px -109.2px; }
 .upgrade-copy { min-width:0; display:grid; }
 .upgrade-copy > strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10px; }
 .upgrade-copy > small { margin-top:2px; color:#929aaa; font-size:8px; line-height:1.35; }
