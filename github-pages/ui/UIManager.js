@@ -96,7 +96,8 @@ export class UIManager {
     const tier = PICKAXES[run.tier];
     const ratio = Math.max(0, run.hp / run.maxHp);
     $("#hud-pickaxe-tier").textContent = tier.name.toUpperCase();
-    $("#hud-pickaxe-icon").style.color = tier.glow;
+    $("#hud-pickaxe-icon").className = `sprite-tier-${run.tier}`;
+    $("#hud-pickaxe-icon").textContent = "";
     $("#hp-fill").style.width = `${ratio * 100}%`;
     $("#hp-fill").dataset.state = ratio > 0.55 ? "high" : ratio > 0.25 ? "medium" : "low";
     $("#hp-text").textContent = `${Math.ceil(run.hp)} / ${run.maxHp} HP`;
@@ -133,28 +134,66 @@ export class UIManager {
   }
 
   renderUpgrades() {
-    const icons = {
-      durability: "♥", handle: "◒", oreValue: "◆", dynamite: "✹",
-      forgeChance: "⚒", luckyStart: "★", secondWind: "↻",
-    };
+    const groups = [
+      { title: "ОСНОВА КИРКИ", subtitle: "Прочность и заработок", ids: ["durability", "handle", "oreValue"] },
+      { title: "УДАЧНЫЙ ЗАБЕГ", subtitle: "Редкие спасения", ids: ["forgeChance", "luckyStart", "secondWind"] },
+      { title: "ВЗРЫВНОЕ ДЕЛО", subtitle: "Больше блоков за один взрыв", ids: ["dynamite"] },
+    ];
+    const upgrades = this.save.data.upgrades;
+    const bestTier = Math.max(0, Math.min(4, this.save.data.stats.bestTier || 0));
+    const startHp = 50 + upgrades.durability * 5;
+    const reduction = Math.min(30, upgrades.handle * 2);
+    const income = upgrades.oreValue * 10;
     const content = $("#modal-content");
-    content.innerHTML = `<p class="modal-intro">Улучшения действуют во всех следующих запусках.</p><div class="upgrade-list"></div>`;
-    const list = content.querySelector(".upgrade-list");
-    for (const [id, config] of Object.entries(UPGRADES)) {
-      const level = this.save.data.upgrades[id];
-      const maxed = level >= config.max;
-      const cost = maxed ? 0 : upgradeCost(id, level);
-      const item = document.createElement("article");
-      item.className = "upgrade-item";
-      item.innerHTML = `
-        <span class="upgrade-icon">${icons[id]}</span>
-        <div><strong>${config.name}</strong><small>${config.description}</small><i>Уровень ${level}/${config.max}</i></div>
-        <button ${maxed || this.save.data.coins < cost ? "disabled" : ""} data-buy="${id}">
-          ${maxed ? "МАКС." : `${cost.toLocaleString("ru-RU")} ◆`}
-        </button>`;
-      list.append(item);
+    content.innerHTML = `
+      <section class="workshop-hero">
+        <div class="workshop-pickaxe sprite-tier-${bestTier}"><i></i></div>
+        <div class="workshop-copy">
+          <small>ЛУЧШИЙ НАЙДЕННЫЙ УРОВЕНЬ</small>
+          <strong>${PICKAXES[bestTier].name}</strong>
+          <p>Каждое улучшение остаётся навсегда.</p>
+        </div>
+        <div class="workshop-stats">
+          <span><b>${startHp}</b><small>СТАРТОВОЕ HP</small></span>
+          <span><b>−${reduction}%</b><small>УРОН</small></span>
+          <span><b>+${income}%</b><small>РУДА</small></span>
+        </div>
+      </section>
+      <div class="tier-road" aria-label="Уровни кирки">
+        ${PICKAXES.map((tier, index) => `<span class="tier-sprite sprite-tier-${index} ${index <= bestTier ? "reached" : ""}" title="${tier.name}"></span>`).join("")}
+      </div>
+      <div class="upgrade-groups"></div>`;
+    const groupRoot = content.querySelector(".upgrade-groups");
+    for (const group of groups) {
+      const section = document.createElement("section");
+      section.className = "upgrade-group";
+      section.innerHTML = `<header><div><strong>${group.title}</strong><small>${group.subtitle}</small></div><i>${group.ids.length}</i></header><div class="upgrade-list"></div>`;
+      const list = section.querySelector(".upgrade-list");
+      for (const id of group.ids) {
+        const config = UPGRADES[id];
+        const level = upgrades[id];
+        const maxed = level >= config.max;
+        const cost = maxed ? 0 : upgradeCost(id, level);
+        const affordable = this.save.data.coins >= cost;
+        const progress = Math.max(3, level / config.max * 100);
+        const item = document.createElement("article");
+        item.className = `upgrade-item upgrade-${id} ${affordable && !maxed ? "affordable" : ""}`;
+        item.innerHTML = `
+          <span class="upgrade-icon" aria-hidden="true"></span>
+          <div class="upgrade-copy">
+            <strong>${config.name}</strong>
+            <small>${config.description}</small>
+            <span class="upgrade-progress"><i style="width:${progress}%"></i></span>
+            <em>УРОВЕНЬ ${level} / ${config.max}</em>
+          </div>
+          <button ${maxed || !affordable ? "disabled" : ""} data-buy="${id}">
+            ${maxed ? `<b>МАКС.</b>` : `<small>УЛУЧШИТЬ</small><b>${cost.toLocaleString("ru-RU")} ◆</b>`}
+          </button>`;
+        list.append(item);
+      }
+      groupRoot.append(section);
     }
-    list.querySelectorAll("[data-buy]").forEach((button) => {
+    groupRoot.querySelectorAll("[data-buy]").forEach((button) => {
       button.addEventListener("click", () => this.buyUpgrade(button.dataset.buy));
     });
   }

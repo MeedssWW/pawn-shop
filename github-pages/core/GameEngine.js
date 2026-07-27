@@ -3,6 +3,24 @@ import { MineGenerator } from "../systems/MineGenerator.js";
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const lerp = (from, to, amount) => from + (to - from) * amount;
+const TILE_ATLAS = Object.freeze({
+  dirt: [0, 0],
+  stone: [1, 0],
+  hard: [2, 0],
+  obsidian: [3, 0],
+  coal: [0, 1],
+  copper: [1, 1],
+  ironOre: [2, 1],
+  goldOre: [3, 1],
+  crystal: [0, 2],
+  rainbow: [1, 2],
+  dynamite: [2, 2],
+  forge: [3, 2],
+  fire: [0, 3],
+  blueRock: [1, 3],
+  ember: [2, 3],
+  masonry: [3, 3],
+});
 
 function hexToRgb(hex) {
   const value = Number.parseInt(hex.slice(1), 16);
@@ -17,12 +35,13 @@ function mixColor(first, second, amount) {
 }
 
 export class GameEngine {
-  constructor(canvas, save, audio, ui) {
+  constructor(canvas, save, audio, ui, assets) {
     this.canvas = canvas;
     this.context = canvas.getContext("2d", { alpha: false });
     this.save = save;
     this.audio = audio;
     this.ui = ui;
+    this.assets = assets;
     this.state = "menu";
     this.speed = 1;
     this.lastTime = performance.now();
@@ -513,8 +532,9 @@ export class GameEngine {
     for (let row = -1; row < Math.ceil(this.viewportHeight / GAME.blockSize) + 1; row += 1) {
       for (let column = 0; column < GAME.columns; column += 1) {
         const y = row * GAME.blockSize + offset;
-        const alternating = (row + column) % 3;
-        this.drawBlockShape(column * GAME.blockSize, y, alternating ? "#3a3043" : "#74503d", "#9b6e4d");
+        const index = Math.abs(row * 3 + column * 5) % 7;
+        const tile = index < 3 ? TILE_ATLAS.dirt : index < 6 ? TILE_ATLAS.stone : TILE_ATLAS.coal;
+        this.drawAtlasTile(column * GAME.blockSize, y, tile);
       }
     }
     context.globalAlpha = 1;
@@ -535,64 +555,61 @@ export class GameEngine {
     const x = block.x;
     const y = block.y;
     if (block.kind === "normal") {
-      const type = BLOCKS[block.type];
-      this.drawBlockShape(x, y, type.color, type.edge);
+      let tile = TILE_ATLAS[block.type];
+      if (block.row >= 235) {
+        tile = block.type === "obsidian" ? TILE_ATLAS.fire : block.type === "hard" ? TILE_ATLAS.ember : TILE_ATLAS.masonry;
+      } else if (block.row >= 145) {
+        tile = block.type === "stone" ? TILE_ATLAS.blueRock : block.type === "hard" ? TILE_ATLAS.obsidian : tile;
+      }
+      this.drawAtlasTile(x, y, tile);
       return;
     }
     if (block.kind === "ore") {
-      const terrain = block.row < 55 ? BLOCKS.dirt : block.row < 145 ? BLOCKS.stone : block.row < 235 ? BLOCKS.hard : BLOCKS.obsidian;
-      this.drawBlockShape(x, y, terrain.color, terrain.edge);
-      const ore = ORES[block.type];
-      context.save();
-      context.shadowColor = ore.glow;
-      context.shadowBlur = 9;
-      context.fillStyle = ore.color;
-      const points = [[12, 13], [28, 9], [20, 25], [35, 30], [10, 35]];
-      for (const [px, py] of points) {
-        context.beginPath();
-        context.moveTo(x + px, y + py - 5);
-        context.lineTo(x + px + 5, y + py);
-        context.lineTo(x + px, y + py + 6);
-        context.lineTo(x + px - 5, y + py);
-        context.closePath();
-        context.fill();
-      }
-      context.restore();
+      this.drawAtlasTile(x, y, TILE_ATLAS[block.type]);
       return;
     }
     if (block.kind === "dynamite") {
-      this.drawBlockShape(x, y, "#6d2f32", "#ff695d");
-      context.fillStyle = "#da3c34";
-      context.fillRect(x + 9, y + 10, 8, 28);
-      context.fillRect(x + 19, y + 10, 8, 28);
-      context.fillRect(x + 29, y + 10, 8, 28);
-      context.fillStyle = "#f2c357";
-      context.fillRect(x + 7, y + 19, 32, 7);
-      context.strokeStyle = "#ffdb69";
-      context.lineWidth = 2;
+      this.drawAtlasTile(x, y, TILE_ATLAS.dynamite);
+      context.save();
+      context.fillStyle = `rgba(255,221,100,${0.6 + Math.sin(this.time * 10) * 0.3})`;
+      context.shadowColor = "#ffb33d";
+      context.shadowBlur = 8;
       context.beginPath();
-      context.moveTo(x + 23, y + 10);
-      context.quadraticCurveTo(x + 28, y + 1, x + 35, y + 5);
-      context.stroke();
+      context.arc(x + GAME.blockSize * 0.58, y + GAME.blockSize * 0.16, 2.1, 0, Math.PI * 2);
+      context.fill();
+      context.restore();
       return;
     }
-    this.drawBlockShape(x, y, "#283447", "#61ddcd");
+    this.drawAtlasTile(x, y, TILE_ATLAS.forge);
     context.save();
     context.shadowColor = "#6ffff0";
-    context.shadowBlur = 12 + Math.sin(this.time * 6) * 3;
-    context.fillStyle = "#58d7cb";
-    context.beginPath();
-    context.moveTo(x + 23, y + 7);
-    context.lineTo(x + 34, y + 19);
-    context.lineTo(x + 28, y + 36);
-    context.lineTo(x + 18, y + 36);
-    context.lineTo(x + 12, y + 19);
-    context.closePath();
-    context.fill();
-    context.fillStyle = "#dbfff9";
-    context.fillRect(x + 20, y + 15, 6, 15);
-    context.fillRect(x + 15, y + 20, 16, 5);
+    context.shadowBlur = 15 + Math.sin(this.time * 6) * 4;
+    context.strokeStyle = `rgba(113,255,238,${0.45 + Math.sin(this.time * 6) * 0.18})`;
+    context.lineWidth = 2;
+    context.strokeRect(x + 2, y + 2, GAME.blockSize - 4, GAME.blockSize - 4);
     context.restore();
+  }
+
+  drawAtlasTile(x, y, tile) {
+    const image = this.assets?.get("mine");
+    if (!image || !tile) {
+      this.drawBlockShape(x, y, "#45505e", "#718092");
+      return;
+    }
+    const sourceWidth = image.width / 4;
+    const sourceHeight = image.height / 4;
+    this.context.imageSmoothingEnabled = false;
+    this.context.drawImage(
+      image,
+      tile[0] * sourceWidth,
+      tile[1] * sourceHeight,
+      sourceWidth,
+      sourceHeight,
+      x,
+      y,
+      GAME.blockSize,
+      GAME.blockSize,
+    );
   }
 
   drawBlockShape(x, y, color, edge) {
@@ -629,24 +646,30 @@ export class GameEngine {
     context.translate(pickaxe.x, screenY);
     context.rotate(pickaxe.rotation);
     context.shadowColor = tier.glow;
-    context.shadowBlur = 12;
-    context.strokeStyle = "#704323";
-    context.lineWidth = 7;
-    context.lineCap = "round";
-    context.beginPath();
-    context.moveTo(-11, 18);
-    context.lineTo(12, -15);
-    context.stroke();
-    context.strokeStyle = tier.color;
-    context.lineWidth = 8;
-    context.beginPath();
-    context.moveTo(-20, -16);
-    context.quadraticCurveTo(0, -27, 22, -11);
-    context.stroke();
-    context.fillStyle = tier.glow;
-    context.beginPath();
-    context.arc(12, -15, 3.5, 0, Math.PI * 2);
-    context.fill();
+    context.shadowBlur = 10;
+    const image = this.assets?.get("pickaxes");
+    if (image) {
+      const sourceWidth = image.width / PICKAXES.length;
+      context.imageSmoothingEnabled = false;
+      context.drawImage(
+        image,
+        pickaxe.tier * sourceWidth,
+        0,
+        sourceWidth,
+        image.height,
+        -31,
+        -43,
+        62,
+        86,
+      );
+    } else {
+      context.strokeStyle = tier.color;
+      context.lineWidth = 8;
+      context.beginPath();
+      context.moveTo(-18, -15);
+      context.quadraticCurveTo(0, -27, 22, -11);
+      context.stroke();
+    }
     context.restore();
   }
 

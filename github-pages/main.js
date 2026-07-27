@@ -1,14 +1,21 @@
 import { AudioManager } from "./systems/AudioManager.js";
 import { SaveManager } from "./systems/SaveManager.js";
 import { YandexSDK } from "./systems/YandexSDK.js";
+import { AssetManager } from "./systems/AssetManager.js";
 import { GameEngine } from "./core/GameEngine.js";
 import { UIManager } from "./ui/UIManager.js";
 
 const save = new SaveManager();
 const audio = new AudioManager(save.data.settings);
 const sdk = new YandexSDK();
+const assets = await new AssetManager().load();
+document.documentElement.style.setProperty("--pickaxe-sprites", `url("${assets.urls.pickaxes}")`);
+document.documentElement.style.setProperty("--mine-atlas", `url("${assets.urls.mine}")`);
+const loadingScreen = document.querySelector("#loading-screen");
+loadingScreen.classList.add("ready");
+setTimeout(() => loadingScreen.classList.add("hidden"), 280);
 const ui = new UIManager(save, audio);
-const engine = new GameEngine(document.querySelector("#game-canvas"), save, audio, ui);
+const engine = new GameEngine(document.querySelector("#game-canvas"), save, audio, ui, assets);
 let lastInterstitialRun = 0;
 
 ui.on("start", async () => {
@@ -86,6 +93,10 @@ if (debugParams.has("debug")) {
       return true;
     },
   };
+  if (debugParams.has("coins")) {
+    save.addCoins(Math.max(0, Number(debugParams.get("coins")) || 0));
+    ui.updateMenu();
+  }
   if (debugParams.get("autostart") === "1") {
     engine.start();
     const tier = debugParams.get("tier");

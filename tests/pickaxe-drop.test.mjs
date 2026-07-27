@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 import { BLOCKS, ORES, PICKAXES, biomeAtDepth, dynamiteRadius, upgradeCost } from "../github-pages/config/gameConfig.js";
 import { MineGenerator } from "../github-pages/systems/MineGenerator.js";
@@ -73,4 +73,6 @@ test("production HTML contains the canvas, mobile controls, Yandex SDK and modul
   assert.match(sdkSource, /LoadingAPI/);
   assert.match(html, /type="module" src="\/main\.js"/);
   assert.doesNotMatch(html, /Ломбард|Minecraft/);
+  await access(new URL("../github-pages/public/assets/mine-texture-atlas.png", import.meta.url));
+  await access(new URL("../github-pages/public/assets/pickaxe-sprites.png", import.meta.url));
 });
