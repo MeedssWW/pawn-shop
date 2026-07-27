@@ -53,16 +53,16 @@ export class MineGenerator {
     const depth = row;
     const progress = Math.min(1, depth / GENERATION.depthScale);
     const forgeChance = Math.min(GENERATION.forgeMax, GENERATION.base.forge + this.forgeUpgrade * GENERATION.forgeUpgradeStep);
-    const dynamiteChance = GENERATION.base.dynamite + progress * 0.018;
+    const dynamiteChance = GENERATION.base.dynamite + progress * GENERATION.dynamiteDepthBonus;
     const slimeChance = GENERATION.base.slime;
-    const oreChance = GENERATION.base.ore + progress * 0.045;
+    const oreChance = GENERATION.base.ore + progress * GENERATION.oreDepthBonus;
     const roll = this.random.next();
     let kind = "normal";
     let type = this.pickTerrain(depth);
-    if (roll < forgeChance && row > 5) {
+    if (roll < forgeChance && row >= GENERATION.forgeStartDepth) {
       kind = "forge";
       type = "forge";
-    } else if (roll < forgeChance + dynamiteChance && row > 3) {
+    } else if (roll < forgeChance + dynamiteChance && row >= GENERATION.dynamiteStartDepth) {
       kind = "dynamite";
       type = "dynamite";
     } else if (roll < forgeChance + dynamiteChance + slimeChance && row >= SLIME.startDepth) {

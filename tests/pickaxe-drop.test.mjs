@@ -22,7 +22,9 @@ test("ships the five configured pickaxes and complete resource balance", () => {
   assert.equal(dynamiteRadius(3), 3);
   assert.ok(upgradeCost("durability", 1) > upgradeCost("durability", 0));
   assert.equal(CRITICAL.chance, 0.006);
-  assert.equal(GENERATION.base.slime, 0.04);
+  assert.equal(GENERATION.base.forge, 0.006);
+  assert.equal(GENERATION.base.dynamite, 0.025);
+  assert.equal(GENERATION.base.slime, 0.015);
   assert.ok(SLIME.minimumBounce > 300);
 });
 
@@ -32,6 +34,13 @@ test("generates mine sections on demand with specials and deeper materials", () 
   assert.ok(mine.blocks.size > 1500);
   const kinds = new Set([...mine.blocks.values()].map(({ kind }) => kind));
   assert.deepEqual(kinds, new Set(["normal", "ore", "dynamite", "forge", "slime"]));
+  const baselineMine = new MineGenerator({ seed: 123456, forgeUpgrade: 0 });
+  baselineMine.generateUntil(500);
+  const generated = [...baselineMine.blocks.values()];
+  const ratio = (kind) => generated.filter((block) => block.kind === kind).length / generated.length;
+  assert.ok(ratio("forge") < 0.012);
+  assert.ok(ratio("dynamite") < 0.045);
+  assert.ok(ratio("slime") < 0.025);
   const deepTypes = new Set([...mine.blocks.values()].filter(({ row }) => row > 250).map(({ type }) => type));
   assert.ok(deepTypes.has("obsidian"));
   assert.ok(deepTypes.has("crystal") || deepTypes.has("rainbow"));
