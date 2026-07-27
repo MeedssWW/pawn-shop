@@ -4,7 +4,6 @@ export class AudioManager {
     this.context = null;
     this.musicNodes = [];
     this.musicStarted = false;
-    this.accountLevel = 1;
   }
 
   ensureContext() {
@@ -97,7 +96,6 @@ export class AudioManager {
     master.gain.value = 0.025 * this.settings.music;
     master.connect(context.destination);
     const voices = [[55, "sine"], [82.4, "triangle"]];
-    if (this.accountLevel >= 20) voices.push([110, "sine"], [164.8, "triangle"]);
     for (const [frequency, type] of voices) {
       const oscillator = context.createOscillator();
       oscillator.type = type;
@@ -122,10 +120,6 @@ export class AudioManager {
     this.settings = settings;
     this.stopMusic();
     if (!settings.muted && settings.music) this.startMusic();
-  }
-
-  setAccountLevel(level) {
-    this.accountLevel = Math.max(1, Number(level) || 1);
   }
 
   pause() {

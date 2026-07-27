@@ -1,4 +1,4 @@
-import { BIOMES, DAILY_MISSIONS, UPGRADES, accountLevelFromXp } from "../config/gameConfig.js";
+import { BIOMES, DAILY_MISSIONS, UPGRADES } from "../config/gameConfig.js";
 
 const SAVE_KEY = "pickaxe-drop-save-v1";
 
@@ -36,7 +36,6 @@ export function createDefaultSave() {
     version: 2,
     coins: 0,
     bestDepth: 0,
-    accountXp: 0,
     unlockedBiomes: ["surface"],
     upgrades,
     settings: { music: 0.35, sound: 0.65, muted: false },
@@ -79,7 +78,7 @@ export class SaveManager {
       }
       data.coins = Math.max(0, Number(data.coins) || 0);
       data.bestDepth = Math.max(0, Number(data.bestDepth) || 0);
-      data.accountXp = Math.max(0, Number(data.accountXp) || 0);
+      delete data.accountXp;
       const unlocked = new Set(Array.isArray(data.unlockedBiomes) ? data.unlockedBiomes : []);
       unlocked.add("surface");
       for (const biome of BIOMES) if (data.bestDepth >= biome.start) unlocked.add(biome.id);
@@ -111,15 +110,6 @@ export class SaveManager {
   addCoins(amount) {
     this.data.coins = Math.max(0, Math.round(this.data.coins + amount));
     this.save();
-  }
-
-  addAccountXp(amount) {
-    const gained = Math.max(0, Math.round(Number(amount) || 0));
-    const previousLevel = accountLevelFromXp(this.data.accountXp);
-    this.data.accountXp += gained;
-    const level = accountLevelFromXp(this.data.accountXp);
-    this.save();
-    return { gained, previousLevel, level, leveledUp: level > previousLevel };
   }
 
   unlockBiome(id) {

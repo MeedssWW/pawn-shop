@@ -1,4 +1,4 @@
-import { BIOMES, BLOCKS, CRITICAL, GAME, ORES, PICKAXES, SLIME, accountLevelFromXp, biomeAtDepth, dynamiteRadius } from "../config/gameConfig.js";
+import { BIOMES, BLOCKS, CRITICAL, GAME, ORES, PICKAXES, SLIME, biomeAtDepth, dynamiteRadius } from "../config/gameConfig.js";
 import { MineGenerator } from "../systems/MineGenerator.js";
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -80,7 +80,7 @@ export class GameEngine {
     const upgrades = this.save.data.upgrades;
     const luckyChance = upgrades.luckyStart * 0.03;
     const tier = Math.random() < luckyChance ? 1 : 0;
-    const baseHp = PICKAXES[tier].hp + (tier === 0 ? upgrades.durability * 5 : 0);
+    const baseHp = PICKAXES[tier].hp + upgrades.durability * 5;
     this.generator = new MineGenerator({ forgeUpgrade: upgrades.forgeChance });
     this.generator.generateUntil(GAME.generateAhead);
     this.pickaxe = {
@@ -129,7 +129,6 @@ export class GameEngine {
     this.ui.hideCritical();
     this.ui.showGame();
     this.ui.updateHud(this.run);
-    this.audio.setAccountLevel(accountLevelFromXp(this.save.data.accountXp));
     this.audio.startMusic();
   }
 
@@ -455,7 +454,7 @@ export class GameEngine {
     const maxed = pickaxe.tier >= PICKAXES.length - 1;
     if (!maxed) pickaxe.tier += 1;
     const current = PICKAXES[pickaxe.tier];
-    pickaxe.maxHp = current.hp + (pickaxe.tier === 0 ? this.save.data.upgrades.durability * 5 : 0);
+    pickaxe.maxHp = current.hp + this.save.data.upgrades.durability * 5;
     pickaxe.hp = pickaxe.maxHp;
     if (maxed) {
       const bonus = 150;
@@ -580,15 +579,7 @@ export class GameEngine {
     if (depth >= 200) this.save.updateMission("depth200", 1);
     if (this.run.coins >= 1000) this.save.updateMission("runCoins1000", 1);
     this.save.addCoins(this.run.coins);
-    const xp = Math.max(5, Math.round(
-      depth * 0.65
-      + this.run.ores * 4
-      + this.run.forges * 18
-      + this.run.dynamites * 8
-      + this.run.chains * 12,
-    ));
-    const account = this.save.addAccountXp(xp);
-    this.result = { ...this.run, depth, newRecord, xp, account };
+    this.result = { ...this.run, depth, newRecord };
     this.state = "result";
     if (newRecord) this.audio.play("record");
     else this.audio.play("reward");
@@ -761,7 +752,7 @@ export class GameEngine {
     this.context.fillRect(-20, -20, GAME.width + 40, this.viewportHeight + 40);
     this.drawBiomeArtwork(from, 1);
     if (to !== from && smoothBlend > 0) this.drawBiomeArtwork(to, smoothBlend);
-    this.context.fillStyle = `rgba(5,7,15,${accountLevelFromXp(this.save.data.accountXp) >= 40 ? 0.12 : 0.22})`;
+    this.context.fillStyle = "rgba(5,7,15,.22)";
     this.context.fillRect(-20, -20, GAME.width + 40, this.viewportHeight + 40);
     this.context.globalAlpha = 0.13;
     const dustTravel = this.cameraY * 0.31;
@@ -967,21 +958,12 @@ export class GameEngine {
     const screenY = pickaxe.y - this.cameraY;
     const tier = PICKAXES[pickaxe.tier];
     if (pickaxe.alive && pickaxe.vy > 350) {
-      const cometTrail = accountLevelFromXp(this.save.data.accountXp) >= 15;
       context.strokeStyle = `${tier.glow}66`;
-      context.lineWidth = cometTrail ? 8 : 5;
+      context.lineWidth = 5;
       context.beginPath();
       context.moveTo(pickaxe.x, screenY - 22);
-      context.lineTo(pickaxe.x - pickaxe.vx * 0.05, screenY - (cometTrail ? 86 : 62));
+      context.lineTo(pickaxe.x - pickaxe.vx * 0.05, screenY - 62);
       context.stroke();
-      if (cometTrail) {
-        context.strokeStyle = "rgba(255,224,126,.58)";
-        context.lineWidth = 2;
-        context.beginPath();
-        context.moveTo(pickaxe.x + 5, screenY - 25);
-        context.lineTo(pickaxe.x - pickaxe.vx * 0.06 + 8, screenY - 98);
-        context.stroke();
-      }
     }
     if (!pickaxe.alive) return;
     context.save();

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
-import { BIOMES, BLOCKS, CORE_DEPTH, CRITICAL, GAME, GENERATION, ORES, PICKAXES, SLIME, accountLevelFromXp, biomeAtDepth, coreProgress, dynamiteRadius, rankForLevel, upgradeCost } from "../github-pages/config/gameConfig.js";
+import { BIOMES, BLOCKS, CORE_DEPTH, CRITICAL, GAME, GENERATION, ORES, PICKAXES, SLIME, UPGRADES, biomeAtDepth, coreProgress, dynamiteRadius, upgradeCost } from "../github-pages/config/gameConfig.js";
 import { GameEngine } from "../github-pages/core/GameEngine.js";
 import { MineGenerator } from "../github-pages/systems/MineGenerator.js";
 import { SaveManager, SAVE_KEY } from "../github-pages/systems/SaveManager.js";
@@ -23,8 +23,10 @@ test("ships the five configured pickaxes and complete resource balance", () => {
   assert.ok(upgradeCost("durability", 1) > upgradeCost("durability", 0));
   assert.equal(CRITICAL.chance, 0.006);
   assert.equal(GENERATION.base.forge, 0.006);
-  assert.equal(GENERATION.base.dynamite, 0.025);
+  assert.equal(GENERATION.base.dynamite, 0.03);
   assert.equal(GENERATION.base.slime, 0.015);
+  assert.equal(GENERATION.forgeUpgradeStep, 0.001);
+  assert.equal(UPGRADES.forgeChance.max, 15);
   assert.ok(SLIME.minimumBounce > 300);
 });
 
@@ -79,20 +81,15 @@ test("recovers safely from corrupt saves and persists upgrades", () => {
   assert.equal(reloaded.data.coins, 500);
   assert.equal(reloaded.data.upgrades.durability, 3);
   assert.equal(reloaded.data.daily.missions.length, 3);
-  assert.equal(reloaded.data.accountXp, 0);
   assert.deepEqual(reloaded.data.unlockedBiomes, ["surface"]);
 });
 
-test("tracks the permanent expedition to the core, account levels and ranks", () => {
+test("tracks the permanent expedition to the core without account levels", () => {
   assert.equal(CORE_DEPTH, 3000);
   assert.equal(GAME.metersPerRow, 10);
   assert.equal(BIOMES.length, 6);
   assert.equal(coreProgress(1500), 50);
   assert.equal(coreProgress(3000), 100);
-  assert.equal(accountLevelFromXp(0), 1);
-  assert.ok(accountLevelFromXp(1000) > 1);
-  assert.equal(rankForLevel(1).name, "Новичок");
-  assert.equal(rankForLevel(50).name, "Легенда шахты");
 });
 
 test("production HTML contains the canvas, mobile controls, Yandex SDK and modular entry", async () => {
@@ -105,6 +102,7 @@ test("production HTML contains the canvas, mobile controls, Yandex SDK and modul
   assert.match(sdkSource, /LoadingAPI/);
   assert.match(html, /type="module" src="\/main\.js"/);
   assert.doesNotMatch(html, /Ломбард|Minecraft/);
+  assert.doesNotMatch(html, /УРОВЕНЬ 1|XP|data-open="progress"/);
   await access(new URL("../github-pages/public/assets/mine-texture-atlas.png", import.meta.url));
   await access(new URL("../github-pages/public/assets/pickaxe-sprites.png", import.meta.url));
   await access(new URL("../github-pages/public/assets/ui-icon-atlas.png", import.meta.url));
@@ -122,6 +120,13 @@ test("uses collision normals for physical ricochets without position teleports",
   assert.match(engineSource, /const restitution =/);
   assert.match(engineSource, /pickaxe\.vy = clamp\(pickaxe\.vy, -300/);
   assert.match(engineSource, /const impactTorque =/);
+});
+
+test("applies permanent durability to every pickaxe tier and forge upgrade", async () => {
+  const engineSource = await readFile(new URL("../github-pages/core/GameEngine.js", import.meta.url), "utf8");
+  assert.match(engineSource, /PICKAXES\[tier\]\.hp \+ upgrades\.durability \* 5/);
+  assert.match(engineSource, /current\.hp \+ this\.save\.data\.upgrades\.durability \* 5/);
+  assert.doesNotMatch(engineSource, /tier === 0 \? upgrades\.durability/);
 });
 
 test("uses semantic icons for every permanent upgrade", async () => {

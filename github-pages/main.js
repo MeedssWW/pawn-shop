@@ -4,6 +4,7 @@ import { YandexSDK } from "./systems/YandexSDK.js";
 import { AssetManager } from "./systems/AssetManager.js";
 import { GameEngine } from "./core/GameEngine.js";
 import { UIManager } from "./ui/UIManager.js";
+import { PICKAXES } from "./config/gameConfig.js";
 
 const save = new SaveManager();
 const audio = new AudioManager(save.data.settings);
@@ -78,7 +79,7 @@ if (debugParams.has("debug")) {
       if (!engine.pickaxe || !engine.run) return false;
       const safeTier = Math.max(0, Math.min(4, Number(tier) || 0));
       engine.pickaxe.tier = safeTier;
-      engine.pickaxe.maxHp = [50, 90, 150, 220, 320][safeTier];
+      engine.pickaxe.maxHp = PICKAXES[safeTier].hp + save.data.upgrades.durability * 5;
       engine.pickaxe.hp = engine.pickaxe.maxHp;
       engine.run.tier = safeTier;
       engine.run.maxHp = engine.pickaxe.maxHp;
