@@ -435,14 +435,6 @@ export class UIManager {
     $("#game-shell").classList.remove("critical-active");
   }
 
-  showBiome(name) {
-    const element = $("#biome-label");
-    element.querySelector("strong").textContent = name;
-    element.classList.remove("hidden");
-    clearTimeout(this.biomeTimer);
-    this.biomeTimer = setTimeout(() => element.classList.add("hidden"), 1800);
-  }
-
   showBiomeUnlock(biome) {
     const element = $("#biome-unlock");
     element.style.setProperty("--biome-unlock-art", `url("${this.biomeArtUrl(biome)}")`);

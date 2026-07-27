@@ -218,10 +218,14 @@ test("slime launches the pickaxe upward without removing or damaging the block",
   assert.equal(slime.damage, 0);
 });
 
-test("desktop typography, seamless slime tiles and cave backdrop remain enabled", async () => {
+test("desktop typography, seamless slime tiles and infinitely scrolling biome art remain enabled", async () => {
   const engineSource = await readFile(new URL("../github-pages/core/GameEngine.js", import.meta.url), "utf8");
   const css = await readFile(new URL("../github-pages/styles.css", import.meta.url), "utf8");
-  assert.match(engineSource, /renderCaveBackdrop\(current, next, blend\)/);
+  assert.match(engineSource, /const segmentHeight = GAME\.width \/ sourceRatio/);
+  assert.match(engineSource, /context\.scale\(1, -1\)/);
+  assert.match(engineSource, /const smoothBlend = blend \* blend \* \(3 - 2 \* blend\)/);
+  assert.doesNotMatch(engineSource, /renderCaveBackdrop/);
+  assert.match(engineSource, /renderMenuBackground\(\)/);
   assert.match(engineSource, /fillRect\(block\.x, block\.y, size, size\)/);
   assert.match(css, /\.mission-item strong \{ display:block;/);
   assert.match(css, /@media \(min-width: 700px\)/);

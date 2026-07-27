@@ -47,7 +47,6 @@ export class GameEngine {
     this.speed = 1;
     this.lastTime = performance.now();
     this.time = 0;
-    this.menuOffset = 0;
     this.particles = [];
     this.particlePool = [];
     this.floaters = [];
@@ -186,8 +185,6 @@ export class GameEngine {
         this.slowMotion = Math.max(this.slowMotion, 0.95);
         this.ui.showBiomeUnlock(biome);
         this.audio.play("biome");
-      } else {
-        this.ui.showBiome(biome.name);
       }
     }
     this.run.hp = pickaxe.hp;
@@ -670,7 +667,6 @@ export class GameEngine {
   }
 
   updateAmbient(delta) {
-    this.menuOffset += delta * 18;
     this.updateEffects(delta);
   }
 
@@ -714,9 +710,13 @@ export class GameEngine {
     const shakeX = this.shake ? (Math.random() - 0.5) * this.shake : 0;
     const shakeY = this.shake ? (Math.random() - 0.5) * this.shake : 0;
     context.translate(shakeX, shakeY);
-    this.renderBackground();
-    if (this.generator && this.state !== "menu") this.renderMine();
-    else this.renderMenuBackdrop();
+    if (this.state === "menu") {
+      this.renderMenuBackground();
+      this.renderMenuBackdrop();
+    } else {
+      this.renderBackground();
+      if (this.generator) this.renderMine();
+    }
     if (this.pickaxe && this.state !== "menu") this.renderPickaxe();
     this.renderEffects();
     context.restore();
@@ -727,29 +727,49 @@ export class GameEngine {
   }
 
   renderBackground() {
-    const depth = this.run?.depth || Math.floor(this.menuOffset / 8);
+    const depth = this.run?.depth || 0;
     const currentIndex = BIOMES.findLastIndex((biome) => depth >= biome.start);
     const current = BIOMES[Math.max(0, currentIndex)];
     const next = BIOMES[Math.min(BIOMES.length - 1, currentIndex + 1)];
-    const span = Math.max(1, next.start - current.start);
-    const blend = current === next ? 0 : clamp((depth - current.start) / span, 0, 1);
-    const transition = current === next ? 0 : clamp((depth - next.start + Math.min(90, span * 0.18)) / Math.min(90, span * 0.18), 0, 1);
+    const previous = BIOMES[Math.max(0, currentIndex - 1)];
+    let from = current;
+    let to = current;
+    let blend = 0;
+
+    if (currentIndex > 0) {
+      const width = Math.min(260, Math.max(100, (current.start - previous.start) * 0.4));
+      if (depth < current.start + width / 2) {
+        from = previous;
+        to = current;
+        blend = clamp((depth - (current.start - width / 2)) / width, 0, 1);
+      }
+    }
+    if (from === current && next !== current) {
+      const width = Math.min(260, Math.max(100, (next.start - current.start) * 0.4));
+      if (depth > next.start - width / 2) {
+        from = current;
+        to = next;
+        blend = clamp((depth - (next.start - width / 2)) / width, 0, 1);
+      }
+    }
+
+    const smoothBlend = blend * blend * (3 - 2 * blend);
     const gradient = this.context.createLinearGradient(0, 0, 0, this.viewportHeight);
-    gradient.addColorStop(0, mixColor(current.background[0], next.background[0], blend));
-    gradient.addColorStop(1, mixColor(current.background[1], next.background[1], blend));
+    gradient.addColorStop(0, mixColor(from.background[0], to.background[0], smoothBlend));
+    gradient.addColorStop(1, mixColor(from.background[1], to.background[1], smoothBlend));
     this.context.fillStyle = gradient;
     this.context.fillRect(-20, -20, GAME.width + 40, this.viewportHeight + 40);
-    this.drawBiomeArtwork(current, 1);
-    if (transition > 0) this.drawBiomeArtwork(next, transition);
-    this.context.fillStyle = `rgba(5,7,15,${accountLevelFromXp(this.save.data.accountXp) >= 40 ? 0.36 : 0.47})`;
+    this.drawBiomeArtwork(from, 1);
+    if (to !== from && smoothBlend > 0) this.drawBiomeArtwork(to, smoothBlend);
+    this.context.fillStyle = `rgba(5,7,15,${accountLevelFromXp(this.save.data.accountXp) >= 40 ? 0.12 : 0.22})`;
     this.context.fillRect(-20, -20, GAME.width + 40, this.viewportHeight + 40);
-    this.renderCaveBackdrop(current, next, blend);
-    this.context.globalAlpha = 0.18;
-    for (let index = 0; index < 24; index += 1) {
+    this.context.globalAlpha = 0.13;
+    const dustTravel = this.cameraY * 0.31;
+    for (let index = 0; index < 18; index += 1) {
       const x = (index * 91) % GAME.width;
-      const y = ((index * 137 + this.menuOffset * (index % 3 + 1)) % (this.viewportHeight + 80)) - 40;
-      this.context.fillStyle = current.dust;
-      this.context.fillRect(x, y, index % 4 === 0 ? 3 : 1.5, index % 5 === 0 ? 3 : 1.5);
+      const y = wrap(index * 137 - dustTravel * (0.7 + index % 3 * 0.16), this.viewportHeight + 80) - 40;
+      this.context.fillStyle = mixColor(from.dust, to.dust, smoothBlend);
+      this.context.fillRect(x, y, index % 4 === 0 ? 2.5 : 1.25, index % 5 === 0 ? 2.5 : 1.25);
     }
     this.context.globalAlpha = 1;
   }
@@ -758,118 +778,42 @@ export class GameEngine {
     const image = this.assets?.get(biome.art);
     if (!image) return;
     const context = this.context;
-    const targetRatio = GAME.width / this.viewportHeight;
     const sourceRatio = image.width / image.height;
-    let sourceX = 0;
-    let sourceY = 0;
-    let sourceWidth = image.width;
-    let sourceHeight = image.height;
-    if (sourceRatio > targetRatio) {
-      sourceWidth = image.height * targetRatio;
-      sourceX = (image.width - sourceWidth) / 2;
-    } else {
-      sourceHeight = image.width / targetRatio;
-      sourceY = (image.height - sourceHeight) / 2;
-    }
+    const segmentHeight = GAME.width / sourceRatio;
+    const travel = this.cameraY * 0.22;
+    const firstSegment = Math.floor(travel / segmentHeight) - 1;
+    const lastSegment = firstSegment + Math.ceil(this.viewportHeight / segmentHeight) + 3;
     context.save();
     context.globalAlpha = alpha;
     context.imageSmoothingEnabled = true;
-    context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, GAME.width, this.viewportHeight);
-    context.restore();
-  }
-
-  renderCaveBackdrop(current, next, blend) {
-    const context = this.context;
-    const height = this.viewportHeight;
-    const travel = (this.cameraY || this.menuOffset) * 0.18;
-    const accent = mixColor(current.dust, next.dust, blend);
-    context.save();
-
-    context.globalAlpha = 0.11;
-    context.fillStyle = accent;
-    for (let index = -1; index < Math.ceil(height / 104) + 2; index += 1) {
-      const y = wrap(index * 104 - travel, height + 104) - 52;
-      context.beginPath();
-      context.moveTo(0, y + 16);
-      context.lineTo(74, y + 3);
-      context.lineTo(155, y + 20);
-      context.lineTo(239, y + 7);
-      context.lineTo(332, y + 24);
-      context.lineTo(GAME.width, y + 9);
-      context.lineTo(GAME.width, y + 34);
-      context.lineTo(318, y + 43);
-      context.lineTo(218, y + 31);
-      context.lineTo(112, y + 45);
-      context.lineTo(0, y + 35);
-      context.closePath();
-      context.fill();
-    }
-
-    context.globalAlpha = 0.18;
-    context.strokeStyle = accent;
-    context.lineWidth = 1.4;
-    for (let index = 0; index < 7; index += 1) {
-      const x = 34 + index * 61 + Math.sin(index * 2.7) * 17;
-      const y = wrap(index * 137 - travel * 0.65, height + 170) - 80;
-      context.beginPath();
-      context.moveTo(x, y);
-      context.lineTo(x + 13, y + 24);
-      context.lineTo(x - 5, y + 51);
-      context.lineTo(x + 18, y + 79);
-      context.lineTo(x + 8, y + 118);
-      context.stroke();
-    }
-
-    const wallShade = current.id === "fire" ? "#2b0909"
-      : current.id === "crystal" ? "#110b27"
-        : current.id === "stone" ? "#0b1724" : "#190f13";
-    context.globalAlpha = 0.28;
-    context.fillStyle = wallShade;
-    context.beginPath();
-    context.moveTo(0, 0);
-    context.lineTo(35, 0);
-    context.lineTo(23, height * 0.18);
-    context.lineTo(43, height * 0.35);
-    context.lineTo(19, height * 0.58);
-    context.lineTo(36, height * 0.76);
-    context.lineTo(15, height);
-    context.lineTo(0, height);
-    context.closePath();
-    context.fill();
-    context.beginPath();
-    context.moveTo(GAME.width, 0);
-    context.lineTo(GAME.width - 29, 0);
-    context.lineTo(GAME.width - 17, height * 0.21);
-    context.lineTo(GAME.width - 41, height * 0.42);
-    context.lineTo(GAME.width - 20, height * 0.65);
-    context.lineTo(GAME.width - 38, height * 0.83);
-    context.lineTo(GAME.width - 16, height);
-    context.lineTo(GAME.width, height);
-    context.closePath();
-    context.fill();
-
-    context.globalAlpha = current.id === "crystal" ? 0.24 : 0.13;
-    context.fillStyle = accent;
-    context.shadowColor = accent;
-    context.shadowBlur = current.id === "crystal" ? 12 : 5;
-    for (let index = 0; index < 9; index += 1) {
-      const x = 28 + (index * 83) % (GAME.width - 56);
-      const y = wrap(index * 151 - travel * 0.8, height + 90) - 45;
-      const size = 2 + index % 3;
+    for (let segment = firstSegment; segment <= lastSegment; segment += 1) {
+      const y = segment * segmentHeight - travel;
       context.save();
-      context.translate(x, y);
-      context.rotate(Math.PI / 4);
-      context.fillRect(-size, -size, size * 2, size * 2);
+      if (Math.abs(segment) % 2 === 1) {
+        context.translate(0, y + segmentHeight);
+        context.scale(1, -1);
+        context.drawImage(image, 0, 0, GAME.width, segmentHeight);
+      } else {
+        context.drawImage(image, 0, y, GAME.width, segmentHeight);
+      }
       context.restore();
     }
     context.restore();
   }
 
+  renderMenuBackground() {
+    const gradient = this.context.createLinearGradient(0, 0, 0, this.viewportHeight);
+    gradient.addColorStop(0, "#24202a");
+    gradient.addColorStop(1, "#090b14");
+    this.context.fillStyle = gradient;
+    this.context.fillRect(-20, -20, GAME.width + 40, this.viewportHeight + 40);
+  }
+
   renderMenuBackdrop() {
     const context = this.context;
     context.save();
-    context.globalAlpha = 0.24;
-    const offset = this.menuOffset % GAME.blockSize;
+    context.globalAlpha = 0.68;
+    const offset = 0;
     for (let row = -1; row < Math.ceil(this.viewportHeight / GAME.blockSize) + 1; row += 1) {
       for (let column = 0; column < GAME.columns; column += 1) {
         const y = row * GAME.blockSize + offset;
