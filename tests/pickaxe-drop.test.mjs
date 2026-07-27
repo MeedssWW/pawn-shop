@@ -22,8 +22,8 @@ test("ships the five configured pickaxes and complete resource balance", () => {
   assert.equal(dynamiteRadius(3), 3);
   assert.ok(upgradeCost("durability", 1) > upgradeCost("durability", 0));
   assert.equal(CRITICAL.chance, 0.006);
-  assert.equal(GENERATION.base.forge, 0.006);
-  assert.equal(GENERATION.base.dynamite, 0.03);
+  assert.equal(GENERATION.base.forge, 0.009);
+  assert.equal(GENERATION.base.dynamite, 0.04);
   assert.equal(GENERATION.base.slime, 0.015);
   assert.equal(GENERATION.forgeUpgradeStep, 0.001);
   assert.equal(UPGRADES.forgeChance.max, 15);
@@ -40,8 +40,8 @@ test("generates mine sections on demand with specials and deeper materials", () 
   baselineMine.generateUntil(500);
   const generated = [...baselineMine.blocks.values()];
   const ratio = (kind) => generated.filter((block) => block.kind === kind).length / generated.length;
-  assert.ok(ratio("forge") < 0.012);
-  assert.ok(ratio("dynamite") < 0.045);
+  assert.ok(ratio("forge") < 0.016);
+  assert.ok(ratio("dynamite") < 0.06);
   assert.ok(ratio("slime") < 0.025);
   const deepTypes = new Set([...mine.blocks.values()].filter(({ row }) => row > 250).map(({ type }) => type));
   assert.ok(deepTypes.has("obsidian"));

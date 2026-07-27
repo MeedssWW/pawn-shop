@@ -37,13 +37,13 @@ export const ORES = Object.freeze({
 });
 
 export const GENERATION = Object.freeze({
-  base: { normal: 0.719, ore: 0.23, dynamite: 0.03, forge: 0.006, slime: 0.015 },
+  base: { normal: 0.706, ore: 0.23, dynamite: 0.04, forge: 0.009, slime: 0.015 },
   dynamiteDepthBonus: 0.01,
   oreDepthBonus: 0.04,
   forgeStartDepth: 10,
   dynamiteStartDepth: 7,
   forgeUpgradeStep: 0.001,
-  forgeMax: 0.021,
+  forgeMax: 0.024,
   depthScale: 280,
 });
 
