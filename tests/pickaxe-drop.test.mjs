@@ -230,6 +230,8 @@ test("desktop typography, seamless slime tiles and infinitely scrolling biome ar
   assert.match(engineSource, /context\.scale\(1, -1\)/);
   assert.match(engineSource, /const smoothBlend = blend \* blend \* \(3 - 2 \* blend\)/);
   assert.doesNotMatch(engineSource, /renderCaveBackdrop/);
+  assert.doesNotMatch(engineSource, /showBiomeUnlock|audio\.play\("biome"\)/);
+  assert.doesNotMatch(await readFile(new URL("../github-pages/index.html", import.meta.url), "utf8"), /id="biome-unlock"/);
   assert.match(engineSource, /renderMenuBackground\(\)/);
   assert.match(engineSource, /fillRect\(block\.x, block\.y, size, size\)/);
   assert.match(css, /\.mission-item strong \{ display:block;/);

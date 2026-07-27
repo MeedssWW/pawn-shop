@@ -246,18 +246,6 @@ export class UIManager {
     });
   }
 
-  biomeArtUrl(biome) {
-    const map = {
-      biomeSurface: "assets/biomes/surface.jpg",
-      biomeSoil: "assets/biomes/soil.jpg",
-      biomeStone: "assets/biomes/stone.jpg",
-      biomeCrystal: "assets/biomes/crystal.jpg",
-      biomeLava: "assets/biomes/lava.jpg",
-      biomeCore: "assets/biomes/core.jpg",
-    };
-    return new URL(map[biome.art], document.baseURI).href;
-  }
-
   renderSettings() {
     const settings = this.save.data.settings;
     $("#modal-content").innerHTML = `
@@ -330,19 +318,6 @@ export class UIManager {
   hideCritical() {
     $("#critical-flash").classList.add("hidden");
     $("#game-shell").classList.remove("critical-active");
-  }
-
-  showBiomeUnlock(biome) {
-    const element = $("#biome-unlock");
-    element.style.setProperty("--biome-unlock-art", `url("${this.biomeArtUrl(biome)}")`);
-    $("#biome-unlock-name").textContent = biome.name;
-    $("#biome-unlock-description").textContent = biome.description;
-    $("#biome-unlock-depth").textContent = `ГЛУБИНА ${biome.start.toLocaleString("ru-RU")} М`;
-    element.classList.add("hidden");
-    void element.offsetWidth;
-    element.classList.remove("hidden");
-    clearTimeout(this.biomeUnlockTimer);
-    this.biomeUnlockTimer = setTimeout(() => element.classList.add("hidden"), 2700);
   }
 
   toast(message) {

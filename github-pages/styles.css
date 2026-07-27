@@ -366,26 +366,6 @@ input[type="range"] { width:100%; accent-color:var(--cyan); }
 .upgrade-flash { top:29%; min-width:265px; padding:15px 22px; border:1px solid rgba(92,229,229,.55); border-radius:18px; background:rgba(9,19,30,.93); box-shadow:0 0 40px rgba(92,229,229,.28); }
 .upgrade-flash small { display:block; color:var(--cyan); font:900 18px/1 system-ui, sans-serif; }
 .upgrade-flash strong { display:block; margin-top:4px; font-size:11px; }
-.biome-unlock {
-  position:absolute; z-index:48; inset:0; display:grid; place-items:center; padding:28px; pointer-events:none;
-  background:
-    linear-gradient(180deg,rgba(5,7,14,.18),rgba(5,7,14,.83)),
-    var(--biome-unlock-art) center/cover;
-  animation:biome-reveal 2.7s ease-in-out both;
-}
-.biome-unlock::before { content:""; position:absolute; inset:0; background:radial-gradient(circle at 50% 48%,transparent 8%,rgba(5,7,15,.56) 68%); }
-.biome-unlock > div {
-  position:relative; width:100%; padding:24px 18px; text-align:center; border:1px solid rgba(255,255,255,.22); border-radius:22px;
-  background:rgba(8,11,20,.72); backdrop-filter:blur(7px); box-shadow:0 24px 70px rgba(0,0,0,.5),inset 0 1px rgba(255,255,255,.1);
-  animation:biome-card 2.7s cubic-bezier(.18,.8,.22,1) both;
-}
-.biome-unlock small { display:block; color:#aeb6c5; font-size:7px; letter-spacing:.17em; }
-.biome-unlock span { display:block; margin-top:13px; color:var(--cyan); font:900 13px/1 system-ui,sans-serif; letter-spacing:.2em; }
-.biome-unlock strong { display:block; margin-top:7px; color:#fff4d2; font:900 27px/1.04 system-ui,sans-serif; text-shadow:0 4px 18px #000; }
-.biome-unlock p { margin:8px auto 12px; max-width:270px; color:#c1c6d0; font-size:10px; line-height:1.45; }
-.biome-unlock i { display:inline-block; padding:7px 10px; border:1px solid rgba(255,198,74,.32); border-radius:999px; color:var(--gold); font-size:7px; font-style:normal; letter-spacing:.12em; background:rgba(16,12,8,.42); }
-@keyframes biome-reveal { 0%,100% { opacity:0; } 10%,82% { opacity:1; } }
-@keyframes biome-card { 0% { opacity:0; transform:translateY(34px) scale(.88); } 16%,78% { opacity:1; transform:none; } 100% { opacity:0; transform:translateY(-18px) scale(1.04); } }
 .toast { bottom:max(76px,calc(env(safe-area-inset-bottom) + 65px)); max-width:calc(100% - 40px); padding:11px 16px; border:1px solid var(--line); border-radius:13px; background:rgba(10,12,22,.94); font-size:10px; box-shadow:0 9px 30px rgba(0,0,0,.4); }
 @keyframes pop-in { from { opacity:0; transform:translateX(-50%) scale(.82); } to { opacity:1; transform:translateX(-50%) scale(1); } }
 

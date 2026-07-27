@@ -180,11 +180,7 @@ export class GameEngine {
     const biome = biomeAtDepth(this.run.depth);
     if (biome.id !== this.lastBiome) {
       this.lastBiome = biome.id;
-      if (this.save.unlockBiome(biome.id)) {
-        this.slowMotion = Math.max(this.slowMotion, 0.95);
-        this.ui.showBiomeUnlock(biome);
-        this.audio.play("biome");
-      }
+      this.save.unlockBiome(biome.id);
     }
     this.run.hp = pickaxe.hp;
     this.run.maxHp = pickaxe.maxHp;
