@@ -89,3 +89,14 @@ test("uses collision normals for physical ricochets without position teleports",
   assert.match(engineSource, /pickaxe\.vy = clamp\(pickaxe\.vy, -300/);
   assert.match(engineSource, /const impactTorque =/);
 });
+
+test("uses semantic icons for every permanent upgrade", async () => {
+  const css = await readFile(new URL("../github-pages/styles.css", import.meta.url), "utf8");
+  assert.match(css, /\.upgrade-icon\s*\{[^}]*background-image:var\(--ui-icons\)/s);
+  assert.match(css, /\.upgrade-durability \.upgrade-icon \{ background-position:33\.333% 100%; \}/);
+  assert.match(css, /\.upgrade-handle \.upgrade-icon \{ background-position:33\.333% 0; \}/);
+  assert.match(css, /\.upgrade-oreValue \.upgrade-icon \{ background-position:0 0; \}/);
+  assert.match(css, /\.upgrade-dynamite \.upgrade-icon \{ background-position:100% 100%; \}/);
+  assert.match(css, /\.upgrade-luckyStart \.upgrade-icon \{ background-position:0 100%; \}/);
+  assert.match(css, /\.upgrade-secondWind \.upgrade-icon \{ background-position:33\.333% 66\.667%; \}/);
+});
