@@ -98,7 +98,7 @@ test("production HTML contains the canvas, mobile controls, Yandex SDK and modul
   assert.match(html, /id="game-canvas"/);
   assert.match(html, /id="speed-btn"/);
   assert.match(html, /id="pause-btn"/);
-  assert.match(sdkSource, /yandex\.ru\/games\/sdk\/v2/);
+  assert.match(sdkSource, /sdk\.games\.s3\.yandex\.net\/sdk\.js/);
   assert.match(sdkSource, /LoadingAPI/);
   assert.match(html, /type="module" src="\/main\.js"/);
   assert.doesNotMatch(html, /Ломбард|Minecraft/);

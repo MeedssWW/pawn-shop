@@ -6,6 +6,9 @@ import { GameEngine } from "./core/GameEngine.js";
 import { UIManager } from "./ui/UIManager.js";
 import { PICKAXES } from "./config/gameConfig.js";
 
+const launchParams = new URLSearchParams(location.search);
+if (launchParams.get("capture") === "mobile") document.documentElement.classList.add("capture-mobile");
+
 const save = new SaveManager();
 const audio = new AudioManager(save.data.settings);
 const sdk = new YandexSDK();
@@ -20,11 +23,20 @@ const ui = new UIManager(save, audio);
 const engine = new GameEngine(document.querySelector("#game-canvas"), save, audio, ui, assets);
 let lastInterstitialRun = 0;
 
+const showAdWithAudioPaused = async (showAd) => {
+  audio.pause();
+  try {
+    return await showAd();
+  } finally {
+    audio.resume();
+  }
+};
+
 ui.on("start", async () => {
   const runs = save.data.stats.runs;
   if (runs > 0 && runs % 3 === 0 && runs !== lastInterstitialRun) {
     lastInterstitialRun = runs;
-    await sdk.showFullscreen();
+    await showAdWithAudioPaused(() => sdk.showFullscreen());
   }
   engine.start();
   sdk.startGameplay();
@@ -34,8 +46,13 @@ ui.on("resume", () => { engine.resume(); sdk.startGameplay(); });
 ui.on("end", () => { engine.end(); sdk.stopGameplay(); });
 ui.on("speed", () => engine.toggleSpeed());
 ui.on("menu", () => { engine.goMenu(); sdk.stopGameplay(); });
-ui.on("revive", () => engine.revive(() => sdk.showRewarded("revive")));
-ui.on("double", () => engine.doubleReward(() => sdk.showRewarded("double-reward")));
+ui.on("revive", async () => {
+  const revived = await engine.revive(() => showAdWithAudioPaused(() => sdk.showRewarded("revive")));
+  if (revived) sdk.startGameplay();
+});
+ui.on("double", () => engine.doubleReward(
+  () => showAdWithAudioPaused(() => sdk.showRewarded("double-reward")),
+));
 ui.on("runStopped", () => sdk.stopGameplay());
 
 let platformPaused = false;
@@ -64,7 +81,7 @@ globalThis.addEventListener("pointerdown", () => audio.ensureContext(), { once: 
 await sdk.init();
 sdk.bindLifecycle({ pause: pauseFromPlatform, resume: resumeFromPlatform });
 
-const debugParams = new URLSearchParams(location.search);
+const debugParams = launchParams;
 if (debugParams.has("debug")) {
   globalThis.__pickaxeDebug = {
     snapshot: () => engine.debugSnapshot(),

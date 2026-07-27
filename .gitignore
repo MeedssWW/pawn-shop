@@ -38,6 +38,9 @@ yarn-error.log*
 next-env.d.ts
 /dist/
 /pages-dist/
+/yandex-dist/
+/yandex-release/media/raw/
+/yandex-release/media/*-source.png
 /.wrangler/
 /outputs/
 /work/

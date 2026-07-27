@@ -31,7 +31,7 @@ export class YandexSDK {
         return;
       }
       const script = document.createElement("script");
-      script.src = "https://yandex.ru/games/sdk/v2";
+      script.src = "https://sdk.games.s3.yandex.net/sdk.js";
       script.dataset.yandexGamesSdk = "true";
       script.onload = resolve;
       script.onerror = resolve;
@@ -69,8 +69,8 @@ export class YandexSDK {
       this.stopGameplay();
       this.ysdk.adv.showFullscreenAdv({
         callbacks: {
-          onClose: (wasShown) => { this.startGameplay(); resolve({ shown: Boolean(wasShown) }); },
-          onError: () => { this.startGameplay(); resolve({ shown: false }); },
+          onClose: (wasShown) => resolve({ shown: Boolean(wasShown) }),
+          onError: () => resolve({ shown: false }),
         },
       });
     });
@@ -87,8 +87,8 @@ export class YandexSDK {
       this.ysdk.adv.showRewardedVideo({
         callbacks: {
           onRewarded: () => { rewarded = true; },
-          onClose: () => { this.startGameplay(); resolve(rewarded); },
-          onError: () => { this.startGameplay(); resolve(false); },
+          onClose: () => resolve(rewarded),
+          onError: () => resolve(false),
         },
       });
     });
